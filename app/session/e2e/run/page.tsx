@@ -9,6 +9,7 @@ import { EvidenceModal } from '@/app/components/EvidenceModal'
 import { BugModal } from '@/app/components/BugModal'
 import type { E2ETC, TCStatus, Evidence, BugDraft } from '@/lib/types'
 import { ExportResultsModal } from '@/app/components/ExportResultsModal'
+import { StepEvidenceModal } from '@/app/components/StepEvidenceModal'
 
 const EMPTY_EVIDENCE: Evidence = { screenshots: [], apiResponse: '', dbResult: '', notes: '' }
 
@@ -28,6 +29,7 @@ export default function E2ERunPage() {
   const [evidenceMap, setEvidenceMap] = useState<Record<string, Evidence>>({})
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [showExportModal, setShowExportModal] = useState(false)
+  const [stepEvidenceTarget, setStepEvidenceTarget] = useState<{ tcId: string; stepKey: string; stepLabel: string } | null>(null)
   const [evidenceTCId, setEvidenceTCId] = useState<string | null>(null)
   const [bugState, setBugState] = useState<{ tc: E2ETC; draft: BugDraft } | null>(null)
   const [bugLoading, setBugLoading] = useState(false)
@@ -88,6 +90,16 @@ export default function E2ERunPage() {
       } catch { /* non-fatal */ }
       finally { setBugLoading(false) }
     }
+  }
+
+  function saveStepImages(tcId: string, stepKey: string, images: string[]) {
+    setEvidenceMap(m => ({
+      ...m,
+      [tcId]: {
+        ...(m[tcId] ?? { screenshots: [], apiResponse: '', dbResult: '', notes: '' }),
+        stepScreenshots: { ...(m[tcId]?.stepScreenshots ?? {}), [stepKey]: images },
+      },
+    }))
   }
 
   function updateStepNote(tcId: string, stepNum: number, note: string) {
@@ -186,22 +198,53 @@ export default function E2ERunPage() {
                 <div className="border-t border-ink-100 bg-ink-50/50 px-4 py-3">
                   <p className="text-[10px] font-medium text-ink-500 uppercase tracking-wide mb-2">Step notes</p>
                   <div className="flex flex-col gap-2">
-                    {tc.steps.map(step => (
-                      <div key={step.num} className="flex items-start gap-2">
-                        <div className={`w-5 h-5 rounded-full shrink-0 mt-0.5 flex items-center justify-center ${STEP_TYPE_DOT[step.type] ?? 'bg-ink-300'}`}>
-                          <span className="text-white font-mono text-[9px]">{step.num}</span>
+                    {tc.steps.map(step => {
+                      const stepKey = String(step.num)
+                      const ev = evidenceMap[tc.id]
+                      const stepImgs = ev?.stepScreenshots?.[stepKey] ?? []
+                      return (
+                        <div key={step.num} className="flex items-start gap-2 group/step">
+                          <div className={`w-5 h-5 rounded-full shrink-0 mt-0.5 flex items-center justify-center ${STEP_TYPE_DOT[step.type] ?? 'bg-ink-300'}`}>
+                            <span className="text-white font-mono text-[9px]">{step.num}</span>
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-mono text-xs text-ink-700">{step.keyword} <span className="text-ink-400">{step.args}</span></p>
+                            <input
+                              value={step.note}
+                              onChange={e => updateStepNote(tc.id, step.num, e.target.value)}
+                              placeholder="Note what happened at this step…"
+                              className="w-full mt-1 text-xs border border-ink-200 rounded px-2 py-1 bg-white focus:outline-none focus:border-accent placeholder:text-ink-300"
+                            />
+                            {/* Per-step screenshots */}
+                            {stepImgs.length > 0 && (
+                              <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                                {stepImgs.map((src, i) => (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    key={i}
+                                    src={src}
+                                    alt=""
+                                    className="h-8 w-12 object-cover rounded border border-ink-200 cursor-pointer hover:opacity-80"
+                                    onClick={() => setStepEvidenceTarget({ tcId: tc.id, stepKey, stepLabel: `Step ${step.num}` })}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          {/* Camera button */}
+                          <button
+                            onClick={() => setStepEvidenceTarget({ tcId: tc.id, stepKey, stepLabel: `Step ${step.num}` })}
+                            className={`mt-0.5 p-1 rounded transition-colors shrink-0 ${stepImgs.length > 0 ? 'text-accent' : 'text-ink-300 hover:text-ink-600 opacity-0 group-hover/step:opacity-100'}`}
+                            title={`Add screenshot for Step ${step.num}`}
+                          >
+                            <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                              <path d="M1 5a1 1 0 0 1 1-1h1.5l1-2h5l1 2H14a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V5z" stroke="currentColor" strokeWidth="1.5"/>
+                              <circle cx="8" cy="8.5" r="2" stroke="currentColor" strokeWidth="1.5"/>
+                            </svg>
+                          </button>
                         </div>
-                        <div className="flex-1">
-                          <p className="font-mono text-xs text-ink-700">{step.keyword} <span className="text-ink-400">{step.args}</span></p>
-                          <input
-                            value={step.note}
-                            onChange={e => updateStepNote(tc.id, step.num, e.target.value)}
-                            placeholder="Note what happened at this step…"
-                            className="w-full mt-1 text-xs border border-ink-200 rounded px-2 py-1 bg-white focus:outline-none focus:border-accent placeholder:text-ink-300"
-                          />
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -221,6 +264,15 @@ export default function E2ERunPage() {
           evidence={evidenceMap[evidenceTC.id] ?? EMPTY_EVIDENCE}
           onSave={(tcId, ev) => setEvidenceMap(m => ({ ...m, [tcId]: ev }))}
           onClose={() => setEvidenceTCId(null)}
+        />
+      )}
+
+      {stepEvidenceTarget && (
+        <StepEvidenceModal
+          stepLabel={stepEvidenceTarget.stepLabel}
+          images={evidenceMap[stepEvidenceTarget.tcId]?.stepScreenshots?.[stepEvidenceTarget.stepKey] ?? []}
+          onSave={imgs => saveStepImages(stepEvidenceTarget.tcId, stepEvidenceTarget.stepKey, imgs)}
+          onClose={() => setStepEvidenceTarget(null)}
         />
       )}
 

@@ -1,12 +1,13 @@
 // app/session/standard/run/page.tsx
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from '@/lib/session-context'
 import { RunStatusButtons } from '@/app/components/RunStatusButtons'
 import { EvidenceModal } from '@/app/components/EvidenceModal'
 import { BugModal } from '@/app/components/BugModal'
+import { StepEvidenceModal } from '@/app/components/StepEvidenceModal'
 import type { StandardTC, TCStatus, Evidence, BugDraft } from '@/lib/types'
 import { ExportResultsModal } from '@/app/components/ExportResultsModal'
 
@@ -21,6 +22,8 @@ export default function StandardRunPage() {
   const [evidenceMap, setEvidenceMap] = useState<Record<string, Evidence>>({})
   const [evidenceTCId, setEvidenceTCId] = useState<string | null>(null)
   const [showExportModal, setShowExportModal] = useState(false)
+  const [expandedTCs, setExpandedTCs] = useState<Set<string>>(new Set())
+  const [stepEvidenceTarget, setStepEvidenceTarget] = useState<{ tcId: string; stepKey: string; stepLabel: string } | null>(null)
   const [bugState, setBugState] = useState<{ tc: StandardTC; draft: BugDraft } | null>(null)
   const [bugLoading, setBugLoading] = useState(false)
   const [cycles, setCycles] = useState<ZephyrCycle[]>([])
@@ -90,6 +93,20 @@ export default function StandardRunPage() {
 
   function saveEvidence(tcId: string, ev: Evidence) {
     setEvidenceMap(m => ({ ...m, [tcId]: ev }))
+  }
+
+  function saveStepImages(tcId: string, stepKey: string, images: string[]) {
+    setEvidenceMap(m => ({
+      ...m,
+      [tcId]: {
+        ...(m[tcId] ?? EMPTY_EVIDENCE),
+        stepScreenshots: { ...(m[tcId]?.stepScreenshots ?? {}), [stepKey]: images },
+      },
+    }))
+  }
+
+  function toggleExpand(id: string) {
+    setExpandedTCs(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   }
 
   function onBugCreated(tc: StandardTC, bugKey: string) {
@@ -162,63 +179,127 @@ export default function StandardRunPage() {
               <th className="px-4 py-2.5 text-left text-xs font-medium text-ink-500 uppercase tracking-wide w-32">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-ink-50">
+          <tbody>
             {standardTCs.map(tc => {
               const ev = evidenceMap[tc.id] ?? EMPTY_EVIDENCE
               const hasEvidence = ev.screenshots.length > 0 || ev.apiResponse || ev.dbResult || ev.notes
+              const steps = tc.steps ? tc.steps.split('\n').filter(s => s.trim()) : []
+              const isExpanded = expandedTCs.has(tc.id)
+              const hasStepEvidence = Object.values(ev.stepScreenshots ?? {}).some(imgs => imgs.length > 0)
+
               return (
-                <tr key={tc.id} className={`group transition-colors ${tc.status === 'Fail' ? 'bg-red-50/30' : 'hover:bg-ink-50/50'}`}>
-                  <td className="px-4 py-3 w-24"><span className="tc-id">{tc.id}</span></td>
-                  <td className="px-4 py-3">
-                    <p className="text-sm text-ink-800 font-medium">{tc.title}</p>
-                    {tc.bugTicket && (
-                      <span className="font-mono text-[10px] text-danger bg-red-50 border border-red-200 px-1.5 py-0.5 rounded mt-0.5 inline-block">
-                        Bug: {tc.bugTicket}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 w-16">
-                    <span className={tc.priority === 'High' ? 'badge-priority-high' : tc.priority === 'Low' ? 'badge-priority-low' : 'badge-priority-med'}>
-                      {tc.priority}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <RunStatusButtons status={tc.status} onChange={s => setStatus(tc, s)} disabled={bugLoading} />
-                  </td>
-                  <td className="px-4 py-3 w-32">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setEvidenceTCId(tc.id)}
-                        className={`text-xs flex items-center gap-1 transition-colors ${hasEvidence ? 'text-accent' : 'text-ink-400 hover:text-ink-700'}`}
-                        title="Attach evidence"
-                      >
-                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M13.5 8.5l-6 6a4 4 0 0 1-5.657-5.657l6-6a2.5 2.5 0 0 1 3.536 3.536l-6 6A1 1 0 0 1 3.964 11L10 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                        {hasEvidence ? 'Evidence' : 'Add'}
-                      </button>
-                      {bugLoading && tc.status !== 'Fail' && null}
-                      {tc.status === 'Fail' && !tc.bugTicket && (
-                        <button
-                          onClick={async () => {
-                            setBugLoading(true)
-                            try {
-                              const evidence = evidenceMap[tc.id] ?? EMPTY_EVIDENCE
-                              const res = await fetch('/api/generate-bug', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ tcId: tc.id, tcTitle: tc.title, steps: tc.steps, expected: tc.expected, actual: evidence.notes, priority: tc.priority }),
-                              })
-                              const data = await res.json() as { bug?: BugDraft }
-                              if (data.bug) setBugState({ tc, draft: data.bug })
-                            } finally { setBugLoading(false) }
-                          }}
-                          className="text-xs text-danger hover:underline whitespace-nowrap"
-                        >
-                          {bugLoading ? '…' : 'File bug'}
-                        </button>
+                <Fragment key={tc.id}>
+                  <tr className={`border-b border-ink-50 transition-colors ${tc.status === 'Fail' ? 'bg-red-50/30' : 'hover:bg-ink-50/50'}`}>
+                    <td className="px-4 py-3 w-24">
+                      <div className="flex items-center gap-1.5">
+                        {steps.length > 0 && (
+                          <button
+                            onClick={() => toggleExpand(tc.id)}
+                            className="text-ink-400 hover:text-ink-600 transition-colors shrink-0"
+                            title={isExpanded ? 'Collapse steps' : 'Show steps'}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                              <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </button>
+                        )}
+                        <span className="tc-id">{tc.id}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm text-ink-800 font-medium">{tc.title}</p>
+                      {tc.bugTicket && (
+                        <span className="font-mono text-[10px] text-danger bg-red-50 border border-red-200 px-1.5 py-0.5 rounded mt-0.5 inline-block">
+                          Bug: {tc.bugTicket}
+                        </span>
                       )}
-                    </div>
-                  </td>
-                </tr>
+                    </td>
+                    <td className="px-4 py-3 w-16">
+                      <span className={tc.priority === 'High' ? 'badge-priority-high' : tc.priority === 'Low' ? 'badge-priority-low' : 'badge-priority-med'}>
+                        {tc.priority}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <RunStatusButtons status={tc.status} onChange={s => setStatus(tc, s)} disabled={bugLoading} />
+                    </td>
+                    <td className="px-4 py-3 w-36">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setEvidenceTCId(tc.id)}
+                          className={`text-xs flex items-center gap-1 transition-colors ${(hasEvidence || hasStepEvidence) ? 'text-accent' : 'text-ink-400 hover:text-ink-700'}`}
+                          title="TC-level evidence"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M13.5 8.5l-6 6a4 4 0 0 1-5.657-5.657l6-6a2.5 2.5 0 0 1 3.536 3.536l-6 6A1 1 0 0 1 3.964 11L10 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                          {(hasEvidence || hasStepEvidence) ? 'Evidence' : 'Add'}
+                        </button>
+                        {tc.status === 'Fail' && !tc.bugTicket && (
+                          <button
+                            onClick={async () => {
+                              setBugLoading(true)
+                              try {
+                                const evidence = evidenceMap[tc.id] ?? EMPTY_EVIDENCE
+                                const res = await fetch('/api/generate-bug', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ tcId: tc.id, tcTitle: tc.title, steps: tc.steps, expected: tc.expected, actual: evidence.notes, priority: tc.priority }),
+                                })
+                                const data = await res.json() as { bug?: BugDraft }
+                                if (data.bug) setBugState({ tc, draft: data.bug })
+                              } finally { setBugLoading(false) }
+                            }}
+                            className="text-xs text-danger hover:underline whitespace-nowrap"
+                          >
+                            {bugLoading ? '…' : 'File bug'}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+
+                  {/* Expandable steps row */}
+                  {isExpanded && steps.length > 0 && (
+                    <tr className="border-b border-ink-50 bg-ink-50/40">
+                      <td colSpan={5} className="px-4 pt-1 pb-3">
+                        <div className="border-l-2 border-ink-200 pl-3 ml-1 space-y-1.5 mt-1">
+                          {steps.map((step, idx) => {
+                            const stepKey = String(idx + 1)
+                            const stepImgs = ev.stepScreenshots?.[stepKey] ?? []
+                            return (
+                              <div key={idx} className="flex items-start gap-2 group/step">
+                                <span className="font-mono text-[10px] text-ink-400 w-5 shrink-0 mt-0.5">{idx + 1}.</span>
+                                <span className="text-xs text-ink-700 flex-1 leading-relaxed">{step}</span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {/* Thumbnails */}
+                                  {stepImgs.map((src, i) => (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      key={i}
+                                      src={src}
+                                      alt=""
+                                      className="h-7 w-10 object-cover rounded border border-ink-200 cursor-pointer hover:opacity-80"
+                                      onClick={() => setStepEvidenceTarget({ tcId: tc.id, stepKey, stepLabel: `Step ${idx + 1}` })}
+                                    />
+                                  ))}
+                                  {/* Camera button */}
+                                  <button
+                                    onClick={() => setStepEvidenceTarget({ tcId: tc.id, stepKey, stepLabel: `Step ${idx + 1}` })}
+                                    className={`p-1 rounded transition-colors ${stepImgs.length > 0 ? 'text-accent' : 'text-ink-300 hover:text-ink-600 opacity-0 group-hover/step:opacity-100'}`}
+                                    title={`Add screenshot for Step ${idx + 1}`}
+                                  >
+                                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                                      <path d="M1 5a1 1 0 0 1 1-1h1.5l1-2h5l1 2H14a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V5z" stroke="currentColor" strokeWidth="1.5"/>
+                                      <circle cx="8" cy="8.5" r="2" stroke="currentColor" strokeWidth="1.5"/>
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               )
             })}
           </tbody>
@@ -232,6 +313,15 @@ export default function StandardRunPage() {
           evidence={evidenceMap[evidenceTC.id] ?? EMPTY_EVIDENCE}
           onSave={saveEvidence}
           onClose={() => setEvidenceTCId(null)}
+        />
+      )}
+
+      {stepEvidenceTarget && (
+        <StepEvidenceModal
+          stepLabel={stepEvidenceTarget.stepLabel}
+          images={evidenceMap[stepEvidenceTarget.tcId]?.stepScreenshots?.[stepEvidenceTarget.stepKey] ?? []}
+          onSave={imgs => saveStepImages(stepEvidenceTarget.tcId, stepEvidenceTarget.stepKey, imgs)}
+          onClose={() => setStepEvidenceTarget(null)}
         />
       )}
 

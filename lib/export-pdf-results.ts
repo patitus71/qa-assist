@@ -311,16 +311,61 @@ export async function exportTestResultPdf(tcs: TC[], opts: ExportResultOptions) 
     addBadge(tc.type, [99, 102, 241])
     y += 8
 
-    // ── Steps ──────────────────────────────────────────────────────────────
+    // ── Helper: embed one image with border + caption ──────────────────────
+    async function embedImage(src: string, caption: string) {
+      if (!src) return
+      const MAX_H = 48   // ≈ 180px at 96dpi
+      try {
+        const img = new Image()
+        await new Promise<void>(res => { img.onload = () => res(); img.onerror = () => res(); img.src = src })
+        const aspect = img.naturalHeight > 0 ? img.naturalWidth / img.naturalHeight : 1
+        let iW = CW
+        let iH = iW / aspect
+        if (iH > MAX_H) { iH = MAX_H; iW = iH * aspect }
+        if (iW > CW)    { iW = CW;    iH = iW / aspect }
+        need(iH + 10)
+        // Border
+        doc.setDrawColor(209, 213, 219)
+        doc.setLineWidth(0.3)
+        doc.rect(ML, y, iW, iH)
+        // Image
+        const fmt = src.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+        doc.addImage(src, fmt, ML, y, iW, iH)
+        y += iH
+        // Caption
+        doc.setFontSize(7)
+        doc.setTextColor(107, 114, 128)
+        doc.text(caption, ML, y + 4)
+        y += 8
+      } catch {
+        doc.setFontSize(7.5)
+        doc.setTextColor(220, 38, 38)
+        doc.text(`[Screenshot unavailable — ${caption}]`, ML + 4, y)
+        y += 5
+      }
+    }
+
+    // ── Steps (with per-step images inline) ────────────────────────────────
     if (steps.length > 0) {
       sectionLabel('Steps')
-      doc.setFontSize(8)
-      for (const step of steps) {
-        const lines = doc.splitTextToSize(step, CW - 4)
-        need(lines.length * 3.7 + 1.5)
+      for (let si = 0; si < steps.length; si++) {
+        const stepKey  = String(si + 1)
+        const stepImgs = ev.stepScreenshots?.[stepKey] ?? []
+
+        // Step text
+        doc.setFontSize(8)
+        const stepLines = doc.splitTextToSize(steps[si], CW - 4)
+        need(stepLines.length * 3.7 + 2)
         doc.setTextColor(55, 65, 81)
-        doc.text(lines, ML + 4, y)
-        y += lines.length * 3.7 + 1.5
+        doc.text(stepLines, ML + 4, y)
+        y += stepLines.length * 3.7 + 2
+
+        // Per-step screenshots
+        for (const src of stepImgs) {
+          await embedImage(src, `Evidence — Step ${stepKey}`)
+        }
+
+        y += 1  // small gap between steps
       }
       y += 1
     }
@@ -349,7 +394,7 @@ export async function exportTestResultPdf(tcs: TC[], opts: ExportResultOptions) 
       y += lines.length * 3.7 + 3
     }
 
-    // ── Evidence: notes ───────────────────────────────────────────────────
+    // ── Notes ─────────────────────────────────────────────────────────────
     if (ev.notes) {
       need(10)
       sectionLabel('Notes')
@@ -361,13 +406,12 @@ export async function exportTestResultPdf(tcs: TC[], opts: ExportResultOptions) 
       y += lines.length * 3.7 + 3
     }
 
-    // ── Evidence: API response ────────────────────────────────────────────
+    // ── API response ──────────────────────────────────────────────────────
     if (ev.apiResponse) {
       need(18)
       sectionLabel('API Response')
-      const snippet = ev.apiResponse.slice(0, 800)
       doc.setFont('Courier')
-      const lines = doc.splitTextToSize(snippet, CW - 8)
+      const lines = doc.splitTextToSize(ev.apiResponse.slice(0, 800), CW - 8)
       const boxH = Math.min(lines.length * 3.5 + 5, 42)
       need(boxH)
       doc.setFillColor(17, 24, 39)
@@ -379,7 +423,7 @@ export async function exportTestResultPdf(tcs: TC[], opts: ExportResultOptions) 
       y += boxH + 3
     }
 
-    // ── Evidence: DB result ───────────────────────────────────────────────
+    // ── DB result ─────────────────────────────────────────────────────────
     if (ev.dbResult) {
       need(14)
       sectionLabel('DB Result')
@@ -397,30 +441,12 @@ export async function exportTestResultPdf(tcs: TC[], opts: ExportResultOptions) 
       y += boxH + 3
     }
 
-    // ── Evidence: screenshots ─────────────────────────────────────────────
-    for (let si = 0; si < ev.screenshots.length; si++) {
-      const src = ev.screenshots[si]
-      if (!src) continue
-      need(20)
-      sectionLabel(`Screenshot ${si + 1}`)
-      try {
-        const img = new Image()
-        await new Promise<void>(res => { img.onload = () => res(); img.onerror = () => res(); img.src = src })
-        const aspect = img.naturalHeight > 0 ? img.naturalWidth / img.naturalHeight : 1
-        let iW = CW
-        let iH = iW / aspect
-        const maxH = 50
-        if (iH > maxH) { iH = maxH; iW = iH * aspect }
-        if (iW > CW)   { iW = CW;   iH = iW / aspect }
-        need(iH + 4)
-        const fmt = src.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-        doc.addImage(src, fmt, ML, y, iW, iH)
-        y += iH + 4
-      } catch {
-        doc.setFontSize(7.5)
-        doc.setTextColor(220, 38, 38)
-        doc.text('[Could not embed screenshot]', ML + 4, y)
-        y += 5
+    // ── TC-level screenshots → "Additional Evidence" ──────────────────────
+    if (ev.screenshots.length > 0) {
+      need(12)
+      sectionLabel('Additional Evidence')
+      for (let si = 0; si < ev.screenshots.length; si++) {
+        await embedImage(ev.screenshots[si], `TC Evidence ${si + 1}`)
       }
     }
 

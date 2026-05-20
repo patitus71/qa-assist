@@ -123,6 +123,7 @@ export interface Evidence {
   apiResponse: string
   dbResult: string
   notes: string
+  stepScreenshots?: Record<string, string[]>  // key: "1","2",… (1-based step number)
 }
 
 export interface AssertionResult {
