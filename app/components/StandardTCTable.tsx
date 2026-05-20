@@ -1,7 +1,7 @@
 // app/components/StandardTCTable.tsx
 'use client'
 
-import { useState, type DragEvent } from 'react'
+import { useState, useEffect, type DragEvent } from 'react'
 import type { StandardTC, TCPriority } from '@/lib/types'
 
 interface Props {
@@ -35,6 +35,15 @@ function IconTrash() {
   )
 }
 
+function IconDuplicate() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M3 11H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 function IconGrip() {
   return (
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-ink-300">
@@ -54,6 +63,7 @@ export function StandardTCTable({ tcs, onChange }: Props) {
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState<'All' | TCPriority>('All')
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const [newRow, setNewRow] = useState({
     title: '', steps: '', expected: '', priority: 'Med' as TCPriority,
     testData: '', prerequisite: '', positiveNegative: 'Positive' as 'Positive' | 'Negative',
@@ -212,10 +222,74 @@ export function StandardTCTable({ tcs, onChange }: Props) {
     setSelected(new Set())
   }
 
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  function duplicateTC(tc: StandardTC) {
+    const copy: StandardTC = {
+      ...tc,
+      id: `${tc.id}-copy`,
+      title: `Copy of ${tc.title}`,
+      status: 'Pending',
+      bugTicket: undefined,
+      actualResult: undefined,
+      runDate: undefined,
+      evidenceFiles: undefined,
+    }
+    const idx = tcs.findIndex(t => t.id === tc.id)
+    const next = [...tcs]
+    next.splice(idx + 1, 0, copy)
+    onChange(next)
+    setEditCell({ rowId: copy.id, field: 'title' })
+    showToast('TC duplicated — rename in the highlighted field')
+  }
+
+  function duplicateSelected() {
+    const list = tcs.filter(t => selected.has(t.id))
+    if (list.length === 0) return
+    const lastIdx = Math.max(...list.map(t => tcs.findIndex(x => x.id === t.id)))
+    const copies: StandardTC[] = list.map(tc => ({
+      ...tc,
+      id: `${tc.id}-copy`,
+      title: `Copy of ${tc.title}`,
+      status: 'Pending',
+      bugTicket: undefined,
+      actualResult: undefined,
+      runDate: undefined,
+      evidenceFiles: undefined,
+    }))
+    const next = [...tcs]
+    next.splice(lastIdx + 1, 0, ...copies)
+    onChange(next)
+    setSelected(new Set())
+    showToast(`${copies.length} TC${copies.length !== 1 ? 's' : ''} duplicated`)
+  }
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!((e.ctrlKey || e.metaKey) && e.key === 'd') || selected.size === 0) return
+      e.preventDefault()
+      duplicateSelected()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, tcs])
+
   const inputCls = 'w-full text-xs border border-ink-200 rounded px-2 py-0.5 bg-white focus:outline-none focus:border-accent placeholder:text-ink-300'
 
   return (
     <div>
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-ink-900 text-white text-sm px-4 py-2.5 rounded-lg shadow-xl flex items-center gap-2 pointer-events-none">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-success shrink-0"><path d="M3 8l4 4 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          {toast}
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex items-center gap-3 mb-3">
         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -227,10 +301,17 @@ export function StandardTCTable({ tcs, onChange }: Props) {
           {PRIORITIES.map(p => <option key={p}>{p}</option>)}
         </select>
         {selected.size > 0 && (
-          <button onClick={deleteSelected}
-            className="btn-ghost text-xs text-danger border-danger hover:bg-red-50 whitespace-nowrap">
-            Delete {selected.size} selected
-          </button>
+          <>
+            <button onClick={duplicateSelected}
+              className="btn-ghost text-xs text-accent border-accent/30 hover:bg-accent/5 whitespace-nowrap flex items-center gap-1.5">
+              <IconDuplicate />
+              Duplicate {selected.size} selected
+            </button>
+            <button onClick={deleteSelected}
+              className="btn-ghost text-xs text-danger border-danger hover:bg-red-50 whitespace-nowrap">
+              Delete {selected.size} selected
+            </button>
+          </>
         )}
         <span className="text-xs text-ink-400 font-mono whitespace-nowrap">{filtered.length}/{tcs.length} TC</span>
       </div>
@@ -253,7 +334,7 @@ export function StandardTCTable({ tcs, onChange }: Props) {
                 <th className="px-3 py-2.5 text-left text-xs font-medium text-ink-500 uppercase tracking-wide w-20">Pos/Neg</th>
                 <th className="px-3 py-2.5 text-left text-xs font-medium text-ink-500 uppercase tracking-wide min-w-[120px]">Test Data</th>
                 <th className="px-3 py-2.5 text-left text-xs font-medium text-ink-500 uppercase tracking-wide min-w-[120px]">Prerequisite</th>
-                <th className="w-10" />
+                <th className="w-16" />
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-50">
@@ -285,11 +366,17 @@ export function StandardTCTable({ tcs, onChange }: Props) {
                   <td className="px-3 py-2 w-20">{renderCell(tc, 'positiveNegative')}</td>
                   <td className="px-3 py-2 min-w-[120px] max-w-[180px]">{renderCell(tc, 'testData')}</td>
                   <td className="px-3 py-2 min-w-[120px] max-w-[180px]">{renderCell(tc, 'prerequisite')}</td>
-                  <td className="px-2 py-2 w-10 text-right">
-                    <button onClick={() => { onChange(tcs.filter(t => t.id !== tc.id)); setSelected(s => { const n = new Set(s); n.delete(tc.id); return n }) }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-danger hover:bg-red-50 rounded p-1" title="Delete">
-                      <IconTrash />
-                    </button>
+                  <td className="px-2 py-2 w-16 text-right">
+                    <div className="flex items-center gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => duplicateTC(tc)}
+                        className="text-ink-400 hover:text-accent hover:bg-accent/10 rounded p-1 transition-colors" title="Duplicate (Ctrl+D)">
+                        <IconDuplicate />
+                      </button>
+                      <button onClick={() => { onChange(tcs.filter(t => t.id !== tc.id)); setSelected(s => { const n = new Set(s); n.delete(tc.id); return n }) }}
+                        className="text-danger hover:bg-red-50 rounded p-1 transition-colors" title="Delete">
+                        <IconTrash />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

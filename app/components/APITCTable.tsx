@@ -1,7 +1,7 @@
 // app/components/APITCTable.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { APITC, Assertion, TCPriority } from '@/lib/types'
 
 interface Props {
@@ -46,6 +46,15 @@ function IconTrash() {
   return (
     <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
       <path d="M3 4h10M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M6 7v5M10 7v5M4 4l1 9h6l1-9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function IconDuplicate() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+      <rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M3 11H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
     </svg>
   )
 }
@@ -242,6 +251,7 @@ export function APITCTable({ tcs, onChange }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [editCell, setEditCell] = useState<{ rowId: string; field: 'endpoint' | 'priority' } | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const [newRow, setNewRow] = useState({ method: 'GET' as APITC['method'], endpoint: '', priority: 'Med' as TCPriority })
 
   function toggleExpand(id: string) {
@@ -304,12 +314,80 @@ export function APITCTable({ tcs, onChange }: Props) {
     setSelected(new Set())
   }
 
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  function duplicateTC(tc: APITC) {
+    const copy: APITC = {
+      ...tc,
+      id: `${tc.id}-copy`,
+      status: 'Pending',
+      assertions: tc.assertions.map(a => ({ ...a })),
+      body: { ...tc.body },
+      bugTicket: undefined,
+      actualResult: undefined,
+      runDate: undefined,
+    }
+    const idx = tcs.findIndex(t => t.id === tc.id)
+    const next = [...tcs]
+    next.splice(idx + 1, 0, copy)
+    onChange(next)
+    setEditCell({ rowId: copy.id, field: 'endpoint' })
+    showToast('API TC duplicated — edit endpoint in the highlighted field')
+  }
+
+  function duplicateSelected() {
+    const list = tcs.filter(t => selected.has(t.id))
+    if (list.length === 0) return
+    const lastIdx = Math.max(...list.map(t => tcs.findIndex(x => x.id === t.id)))
+    const copies: APITC[] = list.map(tc => ({
+      ...tc,
+      id: `${tc.id}-copy`,
+      status: 'Pending',
+      assertions: tc.assertions.map(a => ({ ...a })),
+      body: { ...tc.body },
+      bugTicket: undefined,
+      actualResult: undefined,
+      runDate: undefined,
+    }))
+    const next = [...tcs]
+    next.splice(lastIdx + 1, 0, ...copies)
+    onChange(next)
+    setSelected(new Set())
+    showToast(`${copies.length} API TC${copies.length !== 1 ? 's' : ''} duplicated`)
+  }
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!((e.ctrlKey || e.metaKey) && e.key === 'd') || selected.size === 0) return
+      e.preventDefault()
+      duplicateSelected()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, tcs])
+
   const allSelected = tcs.length > 0 && tcs.every(t => selected.has(t.id))
 
   return (
     <div>
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-ink-900 text-white text-sm px-4 py-2.5 rounded-lg shadow-xl flex items-center gap-2 pointer-events-none">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-success shrink-0"><path d="M3 8l4 4 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          {toast}
+        </div>
+      )}
+
       {selected.size > 0 && (
-        <div className="flex justify-end mb-3">
+        <div className="flex justify-end gap-2 mb-3">
+          <button onClick={duplicateSelected}
+            className="btn-ghost text-xs text-accent border-accent/30 hover:bg-accent/5 flex items-center gap-1.5">
+            <IconDuplicate />
+            Duplicate {selected.size} selected
+          </button>
           <button onClick={deleteSelected} className="btn-ghost text-xs text-danger border-danger hover:bg-red-50">
             Delete {selected.size} selected
           </button>
@@ -328,7 +406,7 @@ export function APITCTable({ tcs, onChange }: Props) {
               <th className="px-3 py-2.5 text-left text-xs font-medium text-ink-500 uppercase tracking-wide">Endpoint</th>
               <th className="px-3 py-2.5 text-left text-xs font-medium text-ink-500 uppercase tracking-wide w-20">Priority</th>
               <th className="px-3 py-2.5 text-left text-xs font-medium text-ink-500 uppercase tracking-wide w-24">Assertions</th>
-              <th className="w-16" />
+              <th className="w-20" />
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-50">
@@ -354,12 +432,16 @@ export function APITCTable({ tcs, onChange }: Props) {
                       {tc.assertions.length}
                     </span>
                   </td>
-                  <td className="px-2 py-2 w-16">
-                    <div className="flex items-center gap-1 justify-end">
+                  <td className="px-2 py-2 w-20">
+                    <div className="flex items-center gap-0.5 justify-end">
                       <button onClick={() => toggleExpand(tc.id)}
                         className={`p-1 rounded transition-colors ${expanded.has(tc.id) ? 'text-accent bg-accent/10' : 'text-ink-400 hover:bg-ink-100'}`}
                         title={expanded.has(tc.id) ? 'Collapse' : 'Edit assertions'}>
                         <IconChevron open={expanded.has(tc.id)} />
+                      </button>
+                      <button onClick={() => duplicateTC(tc)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-ink-400 hover:text-accent hover:bg-accent/10 rounded p-1" title="Duplicate (Ctrl+D)">
+                        <IconDuplicate />
                       </button>
                       <button onClick={() => onChange(tcs.filter(t => t.id !== tc.id))}
                         className="opacity-0 group-hover:opacity-100 transition-opacity text-danger hover:bg-red-50 rounded p-1">
