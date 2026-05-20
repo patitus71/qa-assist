@@ -7,6 +7,7 @@ import { useSession } from '@/lib/session-context'
 import { BugModal } from '@/app/components/BugModal'
 import { DiffViewer } from '@/app/components/DiffViewer'
 import type { APITC, APIRunResult, TCStatus, BugDraft } from '@/lib/types'
+import { ExportResultsModal } from '@/app/components/ExportResultsModal'
 
 type Env = 'dev' | 'staging' | 'uat'
 
@@ -28,6 +29,7 @@ export default function APIRunPage() {
   const [running, setRunning] = useState<Set<string>>(new Set())
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [bugState, setBugState] = useState<{ tc: APITC; draft: BugDraft } | null>(null)
+  const [showExportModal, setShowExportModal] = useState(false)
   const [cycles, setCycles] = useState<ZephyrCycle[]>([])
   const [cycleId, setCycleId] = useState('')
 
@@ -136,6 +138,10 @@ export default function APIRunPage() {
               {cycles.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           )}
+          <button onClick={() => setShowExportModal(true)} className="btn-ghost text-sm flex items-center gap-1.5">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="2" y="1" width="12" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M5 6h6M5 9h4M5 12h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            Export Results
+          </button>
           <button onClick={() => router.back()} className="btn-ghost text-sm">← Back</button>
         </div>
       </div>
@@ -274,6 +280,14 @@ export default function APIRunPage() {
       <div className="mt-5">
         <DiffViewer tcs={apiTCs} runResults={results} />
       </div>
+
+      {showExportModal && (
+        <ExportResultsModal
+          tcs={apiTCs}
+          jiraKey={jiraKey ?? undefined}
+          onClose={() => setShowExportModal(false)}
+        />
+      )}
 
       {bugState && (
         <BugModal

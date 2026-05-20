@@ -8,6 +8,7 @@ import { RunStatusButtons } from '@/app/components/RunStatusButtons'
 import { EvidenceModal } from '@/app/components/EvidenceModal'
 import { BugModal } from '@/app/components/BugModal'
 import type { StandardTC, TCStatus, Evidence, BugDraft } from '@/lib/types'
+import { ExportResultsModal } from '@/app/components/ExportResultsModal'
 
 const EMPTY_EVIDENCE: Evidence = { screenshots: [], apiResponse: '', dbResult: '', notes: '' }
 
@@ -19,6 +20,7 @@ export default function StandardRunPage() {
 
   const [evidenceMap, setEvidenceMap] = useState<Record<string, Evidence>>({})
   const [evidenceTCId, setEvidenceTCId] = useState<string | null>(null)
+  const [showExportModal, setShowExportModal] = useState(false)
   const [bugState, setBugState] = useState<{ tc: StandardTC; draft: BugDraft } | null>(null)
   const [bugLoading, setBugLoading] = useState(false)
   const [cycles, setCycles] = useState<ZephyrCycle[]>([])
@@ -113,6 +115,10 @@ export default function StandardRunPage() {
               {cycles.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           )}
+          <button onClick={() => setShowExportModal(true)} className="btn-ghost text-sm flex items-center gap-1.5">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="2" y="1" width="12" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M5 6h6M5 9h4M5 12h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            Export Results
+          </button>
           <button onClick={() => router.back()} className="btn-ghost text-sm">← Back to list</button>
         </div>
       </div>
@@ -226,6 +232,15 @@ export default function StandardRunPage() {
           evidence={evidenceMap[evidenceTC.id] ?? EMPTY_EVIDENCE}
           onSave={saveEvidence}
           onClose={() => setEvidenceTCId(null)}
+        />
+      )}
+
+      {showExportModal && (
+        <ExportResultsModal
+          tcs={standardTCs}
+          evidenceMap={evidenceMap}
+          jiraKey={jiraKey ?? undefined}
+          onClose={() => setShowExportModal(false)}
         />
       )}
 

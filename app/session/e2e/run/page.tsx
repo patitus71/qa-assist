@@ -8,6 +8,7 @@ import { RunStatusButtons } from '@/app/components/RunStatusButtons'
 import { EvidenceModal } from '@/app/components/EvidenceModal'
 import { BugModal } from '@/app/components/BugModal'
 import type { E2ETC, TCStatus, Evidence, BugDraft } from '@/lib/types'
+import { ExportResultsModal } from '@/app/components/ExportResultsModal'
 
 const EMPTY_EVIDENCE: Evidence = { screenshots: [], apiResponse: '', dbResult: '', notes: '' }
 
@@ -26,6 +27,7 @@ export default function E2ERunPage() {
 
   const [evidenceMap, setEvidenceMap] = useState<Record<string, Evidence>>({})
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [showExportModal, setShowExportModal] = useState(false)
   const [evidenceTCId, setEvidenceTCId] = useState<string | null>(null)
   const [bugState, setBugState] = useState<{ tc: E2ETC; draft: BugDraft } | null>(null)
   const [bugLoading, setBugLoading] = useState(false)
@@ -117,6 +119,10 @@ export default function E2ERunPage() {
               {cycles.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           )}
+          <button onClick={() => setShowExportModal(true)} className="btn-ghost text-sm flex items-center gap-1.5">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="2" y="1" width="12" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M5 6h6M5 9h4M5 12h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            Export Results
+          </button>
           <button onClick={() => router.back()} className="btn-ghost text-sm">← Back</button>
         </div>
       </div>
@@ -215,6 +221,15 @@ export default function E2ERunPage() {
           evidence={evidenceMap[evidenceTC.id] ?? EMPTY_EVIDENCE}
           onSave={(tcId, ev) => setEvidenceMap(m => ({ ...m, [tcId]: ev }))}
           onClose={() => setEvidenceTCId(null)}
+        />
+      )}
+
+      {showExportModal && (
+        <ExportResultsModal
+          tcs={e2eTCs}
+          evidenceMap={evidenceMap}
+          jiraKey={jiraKey ?? undefined}
+          onClose={() => setShowExportModal(false)}
         />
       )}
 

@@ -9,6 +9,7 @@ import { exportPostmanCollection } from '@/lib/export-postman'
 import { TCMColumnEditor } from '@/app/components/TCMColumnEditor'
 import { XlsxExportModal } from '@/app/components/XlsxExportModal'
 import { PushJiraModal } from '@/app/components/PushJiraModal'
+import { ExportResultsModal } from '@/app/components/ExportResultsModal'
 import type { TC, APITC } from '@/lib/types'
 
 // ── Format row ────────────────────────────────────────────────────────────────
@@ -50,12 +51,13 @@ const PdfIcon = <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rec
 const RobotIcon = <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="3" y="6" width="10" height="8" rx="2" stroke="currentColor" strokeWidth="1.5" /><circle cx="6" cy="10" r="0.8" fill="currentColor" /><circle cx="10" cy="10" r="0.8" fill="currentColor" /><path d="M8 3v3M6 3h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
 const JiraIcon = <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" fill="currentColor" opacity="0.5" /><rect x="9" y="2" width="5" height="5" rx="1" fill="currentColor" /><rect x="2" y="9" width="5" height="5" rx="1" fill="currentColor" /><rect x="9" y="9" width="5" height="5" rx="1" fill="currentColor" opacity="0.5" /></svg>
 const PostmanIcon = <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" /><path d="M5 8h6M8 5v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+const ResultIcon  = <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="1" width="12" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M5 5.5h2M5 8.5h6M5 11.5h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><circle cx="8.5" cy="5.5" r="1" fill="currentColor"/></svg>
 
 // ── Column ────────────────────────────────────────────────────────────────────
 
 function ExportColumn({
   title, badge, tcs, onPushJira, onOpenTCM, onOpenXlsx,
-  showPdf, showPostman,
+  onExportResults, showPdf, showPostman,
 }: {
   title: string
   badge: number
@@ -63,6 +65,7 @@ function ExportColumn({
   onPushJira: () => void
   onOpenTCM: () => void
   onOpenXlsx: () => void
+  onExportResults: () => void
   showPdf: boolean
   showPostman: boolean
 }) {
@@ -79,6 +82,7 @@ function ExportColumn({
         <FormatRow icon={ExcelIcon} label="Test Case .xlsx" tag=".xlsx" disabled={disabled} onClick={onOpenXlsx} />
         <FormatRow icon={ExcelIcon} label="TCM .xlsx" tag=".xlsx" disabled={disabled} onClick={() => onOpenTCM()} />
         {showPdf && <FormatRow icon={PdfIcon} label="PDF Report" tag=".pdf" disabled={disabled} onClick={() => exportTCMPdf(tcs, {}, `${title.toLowerCase()}-report.pdf`)} />}
+        <FormatRow icon={ResultIcon} label="Test Result PDF" tag=".pdf" disabled={disabled} onClick={onExportResults} />
         {showPostman && <FormatRow icon={PostmanIcon} label="Postman Collection" tag=".json" disabled={disabled} onClick={() => exportPostmanCollection(apiTCs)} />}
         <FormatRow icon={RobotIcon} label="Robot .robot" tag="→ Robot" href="/session/robot" />
         <FormatRow icon={JiraIcon} label="Push to Jira" tag="Jira" disabled={disabled} onClick={onPushJira} />
@@ -94,6 +98,7 @@ export default function ExportPage() {
   const [pushModal, setPushModal] = useState<TC[] | null>(null)
   const [tcmTarget, setTcmTarget] = useState<{ tcs: TC[]; filename: string } | null>(null)
   const [xlsxTarget, setXlsxTarget] = useState<{ tcs: TC[]; filename: string } | null>(null)
+  const [resultsTarget, setResultsTarget] = useState<TC[] | null>(null)
 
   const allTCs: TC[] = [...standardTCs, ...e2eTCs, ...apiTCs]
   const total = allTCs.length
@@ -119,6 +124,7 @@ export default function ExportPage() {
           onPushJira={() => setPushModal(standardTCs)}
           onOpenTCM={() => setTcmTarget({ tcs: standardTCs, filename: 'standard-tcm.xlsx' })}
           onOpenXlsx={() => setXlsxTarget({ tcs: standardTCs, filename: 'standard-tc.xlsx' })}
+          onExportResults={() => setResultsTarget(standardTCs)}
           showPdf
           showPostman={false}
         />
@@ -129,6 +135,7 @@ export default function ExportPage() {
           onPushJira={() => setPushModal(e2eTCs)}
           onOpenTCM={() => setTcmTarget({ tcs: e2eTCs, filename: 'e2e-tcm.xlsx' })}
           onOpenXlsx={() => setXlsxTarget({ tcs: e2eTCs, filename: 'e2e-tc.xlsx' })}
+          onExportResults={() => setResultsTarget(e2eTCs)}
           showPdf
           showPostman={false}
         />
@@ -139,6 +146,7 @@ export default function ExportPage() {
           onPushJira={() => setPushModal(apiTCs)}
           onOpenTCM={() => setTcmTarget({ tcs: apiTCs, filename: 'api-tcm.xlsx' })}
           onOpenXlsx={() => setXlsxTarget({ tcs: apiTCs, filename: 'api-tc.xlsx' })}
+          onExportResults={() => setResultsTarget(apiTCs)}
           showPdf={false}
           showPostman
         />
@@ -168,6 +176,10 @@ export default function ExportPage() {
             className="btn-ghost text-xs disabled:opacity-40">
             PDF Report
           </button>
+          <button onClick={() => setResultsTarget(allTCs)} disabled={!total}
+            className="btn-ghost text-xs disabled:opacity-40">
+            Test Result PDF
+          </button>
           <Link href="/session/robot" className="btn-ghost text-xs">
             Robot .robot →
           </Link>
@@ -177,6 +189,15 @@ export default function ExportPage() {
           </button>
         </div>
       </div>
+
+      {/* Test Result PDF modal */}
+      {resultsTarget && (
+        <ExportResultsModal
+          tcs={resultsTarget}
+          jiraKey={jiraKey ?? undefined}
+          onClose={() => setResultsTarget(null)}
+        />
+      )}
 
       {/* Push to Jira modal */}
       {pushModal && (
