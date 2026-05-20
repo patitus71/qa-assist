@@ -4,10 +4,12 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useSession } from '@/lib/session-context'
 import { generateDefaultRobot, downloadRobotFile } from '@/lib/export-robot'
-import type { TC } from '@/lib/types'
+import { generateKeywordFile } from '@/lib/export-robot-keywords'
+import { generateWorkflowFile } from '@/lib/export-robot-workflow'
+import type { TC, APITC, E2ETC } from '@/lib/types'
 import type { ParsedTemplate } from '@/app/api/robot/parse-template/route'
 
-type Mode = 'default' | 'custom'
+type Mode = 'default' | 'custom' | 'keyword' | 'workflow'
 type Scope = 'all' | 'standard' | 'e2e' | 'api'
 
 // ── Syntax highlighter ────────────────────────────────────────────────────────
@@ -93,6 +95,8 @@ export default function RobotPage() {
 
   const [mode, setMode] = useState<Mode>('default')
   const [scope, setScope] = useState<Scope>('all')
+  const [keywordContent, setKeywordContent] = useState('')
+  const [workflowContent, setWorkflowContent] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string> | null>(null) // null = all selected
   const [showPreview, setShowPreview] = useState(false)
   const [defaultContent, setDefaultContent] = useState('')
@@ -158,6 +162,22 @@ export default function RobotPage() {
     const tcs = selectedIds === null ? scopeTCs : scopeTCs.filter(t => (selectedIds as Set<string>).has(t.id))
     const content = defaultContent || generateDefaultRobot(tcs)
     downloadRobotFile(content, `qa-assist-${scope}.robot`)
+  }
+
+  function generateKeyword() {
+    const apiTCsForKw = (selectedIds === null ? scopeTCs : scopeTCs.filter(t => (selectedIds as Set<string>).has(t.id)))
+      .filter((t): t is APITC => t.type === 'API')
+    const content = generateKeywordFile(apiTCsForKw)
+    setKeywordContent(content)
+    setShowPreview(true)
+  }
+
+  function generateWorkflow() {
+    const e2eTCsForWf = (selectedIds === null ? scopeTCs : scopeTCs.filter(t => (selectedIds as Set<string>).has(t.id)))
+      .filter((t): t is E2ETC => t.type === 'E2E')
+    const content = generateWorkflowFile(e2eTCsForWf)
+    setWorkflowContent(content)
+    setShowPreview(true)
   }
 
   async function uploadTemplate(file: File) {
@@ -242,6 +262,22 @@ export default function RobotPage() {
           title="Custom Template"
           description="Upload your team's existing .robot file as a format reference. AI matches your Library imports, custom Keywords, naming convention, and tag style exactly."
           onClick={() => setMode('custom')}
+        />
+        <ModeCard
+          mode="keyword"
+          active={mode === 'keyword'}
+          icon={<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 5h10M4 9h7M4 13h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><path d="M15 11l2 2-2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+          title="Keyword File"
+          description="Generate *** Keywords *** from API TCs. Each TC becomes a reusable keyword that wraps an HTTP call + assertions — ready to import in any .robot suite."
+          onClick={() => { setMode('keyword'); if (scope !== 'api') setScope('api') }}
+        />
+        <ModeCard
+          mode="workflow"
+          active={mode === 'workflow'}
+          icon={<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="4" cy="5" r="2" stroke="currentColor" strokeWidth="1.5" /><circle cx="4" cy="13" r="2" stroke="currentColor" strokeWidth="1.5" /><circle cx="14" cy="9" r="2" stroke="currentColor" strokeWidth="1.5" /><path d="M6 5.5l6 3M6 12.5l6-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>}
+          title="E2E Workflow"
+          description="Chain all E2E TCs into one sequential *** Test Cases *** file. Each TC becomes a keyword; the main test calls them in order — ideal for end-to-end regression runs."
+          onClick={() => { setMode('workflow'); if (scope !== 'e2e') setScope('e2e') }}
         />
       </div>
 
@@ -336,12 +372,13 @@ export default function RobotPage() {
 
           {/* Action buttons */}
           <div className="flex gap-3">
-            {mode === 'default' ? (
+            {mode === 'default' && (
               <>
                 <button onClick={generateDefault} className="btn-ghost flex-1 text-sm">Preview .robot</button>
                 <button onClick={downloadDefault} className="btn-primary flex-1 text-sm">Download .robot</button>
               </>
-            ) : (
+            )}
+            {mode === 'custom' && (
               <button
                 onClick={() => editableCustomContent && downloadRobotFile(editableCustomContent, 'qa-assist-custom.robot')}
                 disabled={!editableCustomContent}
@@ -349,6 +386,30 @@ export default function RobotPage() {
               >
                 Download custom .robot
               </button>
+            )}
+            {mode === 'keyword' && (
+              <>
+                <button onClick={generateKeyword} className="btn-ghost flex-1 text-sm">Preview Keywords</button>
+                <button
+                  onClick={() => keywordContent && downloadRobotFile(keywordContent, 'qa-assist-keywords.robot')}
+                  disabled={!keywordContent}
+                  className="btn-primary flex-1 text-sm disabled:opacity-40"
+                >
+                  Download keywords.robot
+                </button>
+              </>
+            )}
+            {mode === 'workflow' && (
+              <>
+                <button onClick={generateWorkflow} className="btn-ghost flex-1 text-sm">Preview Workflow</button>
+                <button
+                  onClick={() => workflowContent && downloadRobotFile(workflowContent, 'qa-assist-workflow.robot')}
+                  disabled={!workflowContent}
+                  className="btn-primary flex-1 text-sm disabled:opacity-40"
+                >
+                  Download workflow.robot
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -425,11 +486,40 @@ export default function RobotPage() {
                 </div>
               )}
 
-              {/* Empty state */}
-              {!showPreview && !defaultContent && !editableCustomContent && (
+              {/* Keyword / Workflow preview */}
+              {(mode === 'keyword' && keywordContent) && (
+                <div>
+                  <p className="text-[10px] font-mono text-ink-400 mb-1 uppercase">Keywords File</p>
+                  <div className="bg-ink-900 rounded-lg overflow-hidden border border-ink-700">
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-ink-800 border-b border-ink-700">
+                      <span className="font-mono text-[10px] text-ink-400">qa-assist-keywords.robot</span>
+                      <button onClick={() => downloadRobotFile(keywordContent, 'qa-assist-keywords.robot')} className="font-mono text-[10px] text-accent hover:underline">↓ download</button>
+                    </div>
+                    <div className="overflow-auto max-h-[600px]"><RobotPreview content={keywordContent} /></div>
+                  </div>
+                </div>
+              )}
+              {(mode === 'workflow' && workflowContent) && (
+                <div>
+                  <p className="text-[10px] font-mono text-ink-400 mb-1 uppercase">Workflow File</p>
+                  <div className="bg-ink-900 rounded-lg overflow-hidden border border-ink-700">
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-ink-800 border-b border-ink-700">
+                      <span className="font-mono text-[10px] text-ink-400">qa-assist-workflow.robot</span>
+                      <button onClick={() => downloadRobotFile(workflowContent, 'qa-assist-workflow.robot')} className="font-mono text-[10px] text-accent hover:underline">↓ download</button>
+                    </div>
+                    <div className="overflow-auto max-h-[600px]"><RobotPreview content={workflowContent} /></div>
+                  </div>
+                </div>
+              )}
+
+          {/* Empty state */}
+              {!showPreview && !defaultContent && !editableCustomContent && !keywordContent && !workflowContent && (
                 <div className="card p-10 border-dashed text-center text-ink-400 flex items-center justify-center">
                   <p className="text-sm">
-                    {mode === 'default' ? 'Click "Preview .robot" to see generated content.' : 'Upload a template and generate to see the preview here.'}
+                    {mode === 'default' ? 'Click "Preview .robot" to see generated content.'
+                      : mode === 'keyword' ? 'Click "Preview Keywords" to generate *** Keywords *** file.'
+                      : mode === 'workflow' ? 'Click "Preview Workflow" to generate E2E workflow test.'
+                      : 'Upload a template and generate to see the preview here.'}
                   </p>
                 </div>
               )}

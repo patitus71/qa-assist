@@ -5,6 +5,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from '@/lib/session-context'
 import { BugModal } from '@/app/components/BugModal'
+import { DiffViewer } from '@/app/components/DiffViewer'
 import type { APITC, APIRunResult, TCStatus, BugDraft } from '@/lib/types'
 
 type Env = 'dev' | 'staging' | 'uat'
@@ -267,6 +268,11 @@ export default function APIRunPage() {
             </div>
           )
         })}
+      </div>
+
+      {/* Response Diff — collapsible */}
+      <div className="mt-5">
+        <DiffViewer tcs={apiTCs} runResults={results} />
       </div>
 
       {bugState && (

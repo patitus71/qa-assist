@@ -1,4 +1,4 @@
-﻿export const runtime = 'edge'
+export const runtime = 'edge'
 
 // app/api/jira/push-tcs/route.ts
 import { NextRequest, NextResponse } from 'next/server'
@@ -14,12 +14,22 @@ const TCSchema = z.object({
   method: z.string().optional(),
   endpoint: z.string().optional(),
   priority: z.enum(['High', 'Med', 'Low']),
+  aiGenerated: z.boolean().optional().default(false),
 })
 
 const InputSchema = z.object({
   tcs: z.array(TCSchema).min(1),
   projectKey: z.string().min(1),
   parentKey: z.string().optional(),
+  // shared metadata
+  workStream: z.string().optional(),
+  release: z.string().optional(),
+  squad: z.string().optional(),
+  sprintId: z.string().optional(),
+  createdBy: z.string().optional(),
+  labels: z.array(z.string()).optional(),
+  components: z.string().optional(),
+  epicLink: z.string().optional(),
 })
 
 const PRIORITY_MAP: Record<string, string> = {
@@ -51,6 +61,16 @@ function tcSummary(tc: z.infer<typeof TCSchema>): string {
   return `${tc.id}: ${tc.title}`
 }
 
+function buildDescription(
+  tc: z.infer<typeof TCSchema>,
+  metaLines: string[],
+): string {
+  const header = metaLines.length > 0
+    ? `[QA Metadata]\n${metaLines.join('\n')}\n\n`
+    : ''
+  return header + tcDescription(tc)
+}
+
 export async function POST(req: NextRequest) {
   let body: unknown
   try { body = await req.json() } catch {
@@ -62,7 +82,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 })
   }
 
-  const { tcs, projectKey, parentKey } = parsed.data
+  const {
+    tcs, projectKey, parentKey,
+    workStream, release, squad, sprintId,
+    labels: baseLabels, components, epicLink,
+  } = parsed.data
+
   const baseUrl = process.env.JIRA_BASE_URL?.replace(/\/$/, '')
   const token = process.env.JIRA_API_TOKEN
   const email = process.env.JIRA_EMAIL
@@ -79,17 +104,42 @@ export async function POST(req: NextRequest) {
     Accept: 'application/json',
   }
 
+  // Metadata description lines — included in every issue description
+  const metaLines: string[] = [
+    workStream ? `Work Stream: ${workStream}` : '',
+    squad      ? `Squad: ${squad}` : '',
+    release    ? `Release: ${release}` : '',
+    sprintId   ? `Sprint: ${sprintId}` : '',
+    epicLink   ? `Epic: ${epicLink}` : '',
+  ].filter(Boolean)
+
+  // Components array for Jira
+  const componentArr = (components ?? '')
+    .split(',').map(c => c.trim()).filter(Boolean)
+    .map(name => ({ name }))
+
+  // Fix versions (release)
+  const fixVersionArr = release ? [{ name: release }] : []
+
   const results: { tcId: string; jiraKey?: string; error?: string }[] = []
 
   for (const tc of tcs) {
+    // Labels: base labels + AI-generated if tc is AI-generated
+    const sharedLabels = baseLabels ?? ['AI-generated']
+    const tcLabels = tc.aiGenerated
+      ? [...new Set([...sharedLabels, 'AI-generated'])]
+      : sharedLabels
+
     const issueBody: Record<string, unknown> = {
       fields: {
         project: { key: projectKey },
         summary: tcSummary(tc),
-        description: adfDoc(tcDescription(tc)),
+        description: adfDoc(buildDescription(tc, metaLines)),
         issuetype: { name: issueType },
         priority: { name: PRIORITY_MAP[tc.priority] ?? 'Medium' },
-        labels: ['AI-generated'],
+        labels: tcLabels,
+        ...(componentArr.length > 0 ? { components: componentArr } : {}),
+        ...(fixVersionArr.length > 0 ? { fixVersions: fixVersionArr } : {}),
         ...(parentKey ? { parent: { key: parentKey } } : {}),
       },
     }

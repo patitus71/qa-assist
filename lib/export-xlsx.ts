@@ -2,6 +2,25 @@
 import * as XLSX from 'xlsx-js-style'
 import type { TC, StandardTC, E2ETC, TCMGroup } from './types'
 
+export interface XlsxMeta {
+  workStream: string
+  release: string
+  squad: string
+  sprintId: string
+  createdBy: string
+  labels: string[]
+  components: string
+  epicLink: string
+  linkType: string
+  issueKey: string
+}
+
+const EMPTY_META: XlsxMeta = {
+  workStream: '', release: '', squad: '', sprintId: '',
+  createdBy: '', labels: [], components: '',
+  epicLink: '', linkType: '', issueKey: '',
+}
+
 // ── Style constants ────────────────────────────────────────────────────────────
 
 const S = {
@@ -22,6 +41,30 @@ const S = {
     font: { italic: true, color: { rgb: '6B6B75' }, sz: 8 },
     fill: { patternType: 'solid', fgColor: { rgb: 'F4F4F6' } },
     alignment: { horizontal: 'center', vertical: 'center' },
+  },
+  // TC-level merged data cell (even TCs — light blue)
+  tcCell: {
+    font: { sz: 9, color: { rgb: '1E293B' } },
+    fill: { patternType: 'solid', fgColor: { rgb: 'EFF6FF' } },
+    alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
+  },
+  // TC-level merged data cell (odd TCs — light slate)
+  tcCellAlt: {
+    font: { sz: 9, color: { rgb: '1E293B' } },
+    fill: { patternType: 'solid', fgColor: { rgb: 'F1F5F9' } },
+    alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
+  },
+  // Step number cell
+  stepNo: {
+    font: { bold: true, sz: 9, color: { rgb: '374151' } },
+    fill: { patternType: 'solid', fgColor: { rgb: 'F8FAFF' } },
+    alignment: { horizontal: 'center', vertical: 'top' },
+  },
+  // Step description / expected result cell
+  stepText: {
+    font: { sz: 9, color: { rgb: '1E293B' } },
+    fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFF' } },
+    alignment: { horizontal: 'left', vertical: 'top', wrapText: true },
   },
   // TCM title banner
   tcmTitle: {
@@ -124,60 +167,88 @@ const ZEPHYR_ROW2 = [
 // Required column indices (0-based)
 const REQUIRED_COLS = new Set([0, 1, 3, 9])
 
-function zephyrDataRows(tc: TC): string[][] {
-  const label = tc.aiGenerated ? 'AI-generated' : ''
+// TC_COLS_END: last 0-based index of TC-level columns before step columns
+const TC_COLS_END = 12   // cols 0-12 are TC-level (13 columns)
+const STEP_COLS_START = 13
+const TRAIL_COLS_START = 16
+const TRAIL_COLS_END = 20
+
+interface TCStepRow {
+  no: string
+  desc: string
+  expected: string
+}
+
+interface TCBuildData {
+  tcCols: string[]       // 13 values for cols 0-12
+  trailCols: string[]    // 5 values for cols 16-20
+  steps: TCStepRow[]
+}
+
+function buildTCStepData(tc: TC, meta: XlsxMeta): TCBuildData {
+  const labelsStr = meta.labels.length > 0 ? meta.labels.join(', ')
+    : tc.aiGenerated ? 'AI-generated' : ''
+  // trailing cols: Automation Status, Epic Link, Link Type, Issues Key To Link, Created by
+  const trailCols = ['Manual', meta.epicLink, meta.linkType, meta.issueKey, meta.createdBy]
 
   if (tc.type === 'Standard') {
     const tcName = `${tc.id}: ${tc.title}`
     const allSteps = tc.stepItems?.length
       ? tc.stepItems.map(s => `${s.keyword}${s.args ? '    ' + s.args : ''}${s.note ? '    # ' + s.note : ''}`)
       : tc.steps.split('\n').filter(Boolean)
-    const steps = allSteps.length > 0 ? allSteps : ['']
-
-    return steps.map((step, i) => i === 0
-      ? [tcName, '', '', '', '', label, '', tc.title, '', zephyrPriority(tc.priority),
-         tc.positiveNegative ?? 'Positive', tc.prerequisite ?? '', tc.testData ?? '',
-         String(i + 1), step, tc.expected, 'Manual', '', '', '', '']
-      : [tcName, '', '', '', '', '', '', '', '', '', '', '', '',
-         String(i + 1), step, '', '', '', '', '', '']
-    )
+    const stepLines = allSteps.length > 0 ? allSteps : ['']
+    return {
+      tcCols: [tcName, meta.workStream, meta.sprintId, meta.release, meta.squad,
+               labelsStr, meta.components, tc.title, '',
+               zephyrPriority(tc.priority), tc.positiveNegative ?? 'Positive',
+               tc.prerequisite ?? '', tc.testData ?? ''],
+      trailCols,
+      steps: stepLines.map((line, i) => ({
+        no: String(i + 1),
+        desc: line,
+        expected: i === 0 ? tc.expected : '',
+      })),
+    }
   }
 
   if (tc.type === 'E2E') {
     const tcName = `${tc.id}: ${tc.title}`
-    const steps = tc.steps.length > 0 ? tc.steps
+    const rawSteps = tc.steps.length > 0 ? tc.steps
       : [{ num: 1, keyword: '(no steps)', args: '', type: 'Action' as const, note: '' }]
-
-    return steps.map((s, i) => {
-      const desc = `[${s.type}] ${s.keyword}${s.args ? ' ' + s.args : ''}${s.note ? ' # ' + s.note : ''}`
-      return i === 0
-        ? [tcName, '', '', '', '', label, '', tc.title, tc.flow,
-           zephyrPriority(tc.priority), 'Positive', '', '',
-           String(s.num), desc, '', 'Manual', '', '', '', '']
-        : [tcName, '', '', '', '', '', '', '', '', '', '', '', '',
-           String(s.num), desc, '', '', '', '', '', '']
-    })
+    return {
+      tcCols: [tcName, meta.workStream, meta.sprintId, meta.release, meta.squad,
+               labelsStr, meta.components, tc.title, tc.flow,
+               zephyrPriority(tc.priority), 'Positive', '', ''],
+      trailCols,
+      steps: rawSteps.map(s => ({
+        no: String(s.num),
+        desc: `[${s.type}] ${s.keyword}${s.args ? ' ' + s.args : ''}${s.note ? ' # ' + s.note : ''}`,
+        expected: '',
+      })),
+    }
   }
 
+  // API
   const tcName = `${tc.id}: ${tc.method} ${tc.endpoint}`
   const assertions = tc.assertions.length > 0 ? tc.assertions
     : [{ type: 'status' as const, operator: 'equals' as const, expected: '200' }]
-
-  return assertions.map((a, i) => {
-    const desc = `${tc.method} ${tc.endpoint} — assert ${a.type} ${a.operator} ${a.expected}`
-    return i === 0
-      ? [tcName, '', '', '', '', label, '', tcName, '', zephyrPriority(tc.priority),
-         'Positive', '', '', String(i + 1), desc, `${a.type} ${a.operator} ${a.expected}`,
-         'Manual', '', '', '', '']
-      : [tcName, '', '', '', '', '', '', '', '', '', '', '', '',
-         String(i + 1), desc, `${a.type} ${a.operator} ${a.expected}`,
-         '', '', '', '', '']
-  })
+  return {
+    tcCols: [tcName, meta.workStream, meta.sprintId, meta.release, meta.squad,
+             labelsStr, meta.components, tcName, '',
+             zephyrPriority(tc.priority), 'Positive', '', ''],
+    trailCols,
+    steps: assertions.map((a, i) => ({
+      no: String(i + 1),
+      desc: `${tc.method} ${tc.endpoint} — assert ${a.type} ${a.operator} ${a.expected}`,
+      expected: `${a.type} ${a.operator} ${a.expected}`,
+    })),
+  }
 }
 
-export function exportTCXlsx(tcs: TC[], filename = 'test-cases.xlsx') {
+export function exportTCXlsx(tcs: TC[], filename = 'test-cases.xlsx', meta: XlsxMeta = EMPTY_META) {
   const ws: XLSX.WorkSheet = {}
   const numCols = ZEPHYR_ROW1.length
+  const merges: XLSX.Range[] = []
 
   // Row 0: display labels with color coding
   ZEPHYR_ROW1.forEach((header, c) => {
@@ -189,16 +260,45 @@ export function exportTCXlsx(tcs: TC[], filename = 'test-cases.xlsx') {
     ws[enc(1, c)] = sc(key, S.zephyrKey)
   })
 
-  // Data rows
+  // Data rows with vertical merges for multi-step TCs
   let r = 2
-  for (const tc of tcs) {
-    for (const row of zephyrDataRows(tc)) {
-      row.forEach((v, c) => { ws[enc(r, c)] = cell(v) })
-      r++
+  for (let ti = 0; ti < tcs.length; ti++) {
+    const data = buildTCStepData(tcs[ti], meta)
+    const nSteps = data.steps.length
+    const startRow = r
+    // Alternate background style between even/odd TCs for readability
+    const tcStyle = ti % 2 === 0 ? S.tcCell : S.tcCellAlt
+
+    // Write TC-level columns (0-12) only on the first step row; merged rows below stay styled-empty
+    data.tcCols.forEach((v, c) => { ws[enc(startRow, c)] = sc(v, tcStyle) })
+
+    // Write trailing TC-level columns (16-20) only on the first step row
+    data.trailCols.forEach((v, i) => { ws[enc(startRow, TRAIL_COLS_START + i)] = sc(v, tcStyle) })
+
+    // Write each step row
+    data.steps.forEach((step, si) => {
+      const row = startRow + si
+      if (si > 0) {
+        // Fill TC/trail cols with styled-empty cells so the merged area has a background
+        for (let c = 0; c <= TC_COLS_END; c++) ws[enc(row, c)] = sc('', tcStyle)
+        for (let c = TRAIL_COLS_START; c <= TRAIL_COLS_END; c++) ws[enc(row, c)] = sc('', tcStyle)
+      }
+      ws[enc(row, STEP_COLS_START)]     = sc(step.no, S.stepNo)
+      ws[enc(row, STEP_COLS_START + 1)] = sc(step.desc, S.stepText)
+      ws[enc(row, STEP_COLS_START + 2)] = sc(step.expected, S.stepText)
+    })
+
+    // Register vertical merges for multi-step TCs
+    if (nSteps > 1) {
+      merges.push({ s: { r: startRow, c: 0 }, e: { r: startRow + nSteps - 1, c: TC_COLS_END } })
+      merges.push({ s: { r: startRow, c: TRAIL_COLS_START }, e: { r: startRow + nSteps - 1, c: TRAIL_COLS_END } })
     }
+
+    r += nSteps
   }
 
   ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: r - 1, c: numCols - 1 } })
+  ws['!merges'] = merges
   ws['!freeze'] = { xSplit: 0, ySplit: 2 } as XLSX.WSKeys
   ws['!cols'] = [
     { wch: 36 }, { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
