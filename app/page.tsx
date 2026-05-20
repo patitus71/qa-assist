@@ -435,7 +435,7 @@ export default function LandingPage() {
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <main className="min-h-screen bg-ink-50 flex flex-col">
+    <main className="flex-1 flex flex-col">
       {/* Resume banner */}
       {savedSession && (
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 flex items-center gap-4">
