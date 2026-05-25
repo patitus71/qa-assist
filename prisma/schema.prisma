@@ -1,0 +1,42 @@
+// Phase 3: Replace credentials with Azure AD SSO
+// NextAuth Azure provider — only change is the provider config
+// All role/permission logic stays identical
+// User sync: GET /api/admin/sync-jira to import users from Jira
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Role values: ADMIN | QA_LEAD | QA_ENGINEER | MANAGER
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("QA_ENGINEER")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  name      String
+  ticketKey String?
+  sprint    String?
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+}

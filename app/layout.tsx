@@ -2,7 +2,7 @@
 import type { Metadata } from 'next'
 import { DM_Sans, DM_Mono } from 'next/font/google'
 import './globals.css'
-import { SessionProvider } from '@/lib/session-context'
+import { Providers } from './providers'
 
 const dmSans = DM_Sans({
   subsets: ['latin'],
@@ -43,7 +43,7 @@ export default function RootLayout({
         ` }} />
       </head>
       <body>
-        <SessionProvider>{children}</SessionProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   )
