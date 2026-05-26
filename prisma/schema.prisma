@@ -14,13 +14,26 @@ generator client {
 
 // Role values: ADMIN | QA_LEAD | QA_ENGINEER | MANAGER
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         String   @default("QA_ENGINEER")
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  passwordHash  String
+  role          String         @default("QA_ENGINEER")
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  squadId       String?
+  squad         Squad?         @relation(fields: [squadId], references: [id])
+  timesheets    Timesheet[]
+  savedSessions SavedSession[]
+  emailConfig   EmailConfig?
+}
+
+model Squad {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  createdAt    DateTime      @default(now())
+  members      User[]
+  emailConfigs EmailConfig[]
 }
 
 model Project {
@@ -39,4 +52,37 @@ model AuditLog {
   action    String
   details   String?
   createdAt DateTime @default(now())
+}
+
+model Timesheet {
+  id        String    @id @default(cuid())
+  userId    String
+  ticketKey String
+  startTime DateTime
+  endTime   DateTime?
+  duration  Int?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id])
+}
+
+model SavedSession {
+  id          String   @id @default(cuid())
+  userId      String
+  ticketKey   String?
+  sessionData String
+  savedAt     DateTime @default(now())
+  resumed     Boolean  @default(false)
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model EmailConfig {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  squadId    String?
+  autoSend   Boolean  @default(false)
+  sendTime   String   @default("17:00")
+  recipients String   @default("")
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id])
+  squad      Squad?   @relation(fields: [squadId], references: [id])
 }

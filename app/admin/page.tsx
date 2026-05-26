@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 
 type Role = 'ADMIN' | 'QA_LEAD' | 'QA_ENGINEER' | 'MANAGER'
-type Tab = 'users' | 'audit' | 'settings'
+type Tab = 'users' | 'squads' | 'audit' | 'settings'
+
+interface SquadRef { id: string; name: string }
 
 interface UserRow {
   id: string
@@ -14,6 +16,8 @@ interface UserRow {
   role: Role
   active: boolean
   createdAt: string
+  squadId: string | null
+  squad: SquadRef | null
 }
 
 interface AuditRow {
@@ -22,6 +26,13 @@ interface AuditRow {
   action: string
   details: string | null
   createdAt: string
+}
+
+interface SquadRow {
+  id: string
+  name: string
+  createdAt: string
+  _count: { members: number }
 }
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -44,10 +55,21 @@ function initials(name: string) {
 
 // ─── Add User Modal ──────────────────────────────────────────────────────────
 
-function AddUserModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function AddUserModal({
+  onClose,
+  onCreated,
+  squads,
+  viewerRole,
+}: {
+  onClose: () => void
+  onCreated: () => void
+  squads: SquadRow[]
+  viewerRole: Role
+}) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role>('QA_ENGINEER')
+  const [squadId, setSquadId] = useState('')
   const [password, setPassword] = useState('')
   const [generatedPw, setGeneratedPw] = useState('')
   const [copied, setCopied] = useState(false)
@@ -73,7 +95,7 @@ function AddUserModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
       const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, role, password }),
+        body: JSON.stringify({ name, email, role, password, squadId: squadId || undefined }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error ?? 'Failed to create user'); return }
@@ -83,6 +105,10 @@ function AddUserModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
       setLoading(false)
     }
   }
+
+  const availableRoles = (Object.keys(ROLE_LABELS) as Role[]).filter(r =>
+    viewerRole === 'ADMIN' ? true : r !== 'ADMIN'
+  )
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -113,8 +139,19 @@ function AddUserModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
             <label className="text-xs font-medium text-ink-700">Role</label>
             <select value={role} onChange={e => setRole(e.target.value as Role)}
               className="text-sm border border-ink-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-accent">
-              {(Object.keys(ROLE_LABELS) as Role[]).map(r => (
+              {availableRoles.map(r => (
                 <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-ink-700">Squad</label>
+            <select value={squadId} onChange={e => setSquadId(e.target.value)}
+              className="text-sm border border-ink-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-accent">
+              <option value="">— No squad —</option>
+              {squads.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
           </div>
@@ -156,15 +193,93 @@ function AddUserModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
   )
 }
 
+// ─── Add Squad Modal ──────────────────────────────────────────────────────────
+
+function AddSquadModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [name, setName] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleCreate() {
+    setError('')
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/squads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error ?? 'Failed to create squad'); return }
+      onCreated()
+      onClose()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-[12px] border border-ink-200 w-full max-w-sm p-6"
+        style={{ boxShadow: '0 8px 32px rgba(13,13,14,0.12)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-sm font-semibold text-ink-900">Add squad</h2>
+          <button onClick={onClose} className="text-ink-400 hover:text-ink-700 text-lg leading-none">×</button>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-ink-700">Squad name</label>
+            <input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !loading && name && handleCreate()}
+              placeholder="e.g. Alpha Squad"
+              autoFocus
+              className="text-sm border border-ink-200 rounded-lg px-3 py-2 focus:outline-none focus:border-accent"
+            />
+          </div>
+
+          {error && <p className="text-xs text-danger">{error}</p>}
+
+          <div className="flex justify-end gap-2 mt-2">
+            <button onClick={onClose} className="btn-ghost text-sm">Cancel</button>
+            <button
+              onClick={handleCreate}
+              disabled={loading || !name}
+              className="btn-primary text-sm disabled:opacity-40"
+            >
+              {loading ? 'Creating…' : 'Create squad'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Admin Page ───────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
   const { data: session } = useSession()
+  const viewerRole = (session?.user?.role ?? 'QA_ENGINEER') as Role
+  const isAdmin = viewerRole === 'ADMIN'
+
   const [tab, setTab] = useState<Tab>('users')
   const [users, setUsers] = useState<UserRow[]>([])
+  const [squads, setSquads] = useState<SquadRow[]>([])
   const [auditLogs, setAuditLogs] = useState<AuditRow[]>([])
-  const [showAddModal, setShowAddModal] = useState(false)
+  const [showAddUserModal, setShowAddUserModal] = useState(false)
+  const [showAddSquadModal, setShowAddSquadModal] = useState(false)
   const [loadingUsers, setLoadingUsers] = useState(true)
+  const [loadingSquads, setLoadingSquads] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+  const [editingSquadId, setEditingSquadId] = useState<string | null>(null)
+  const [editingSquadName, setEditingSquadName] = useState('')
+  const editInputRef = useRef<HTMLInputElement>(null)
 
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true)
@@ -176,37 +291,100 @@ export default function AdminPage() {
     }
   }, [])
 
+  const fetchSquads = useCallback(async () => {
+    setLoadingSquads(true)
+    try {
+      const res = await fetch('/api/admin/squads')
+      if (res.ok) setSquads(await res.json())
+    } finally {
+      setLoadingSquads(false)
+    }
+  }, [])
+
   const fetchAudit = useCallback(async () => {
     const res = await fetch('/api/admin/audit')
     if (res.ok) setAuditLogs(await res.json())
   }, [])
 
   useEffect(() => { fetchUsers() }, [fetchUsers])
+  useEffect(() => { fetchSquads() }, [fetchSquads])
   useEffect(() => { if (tab === 'audit') fetchAudit() }, [tab, fetchAudit])
 
+  useEffect(() => {
+    if (editingSquadId && editInputRef.current) editInputRef.current.focus()
+  }, [editingSquadId])
+
   async function handleRoleChange(id: string, role: Role) {
-    await fetch(`/api/admin/users/${id}`, {
+    setErrorMsg('')
+    const res = await fetch(`/api/admin/users/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role }),
     })
+    const data = await res.json()
+    if (!res.ok) { setErrorMsg(data.error ?? 'Failed to update role'); return }
     setUsers(prev => prev.map(u => u.id === id ? { ...u, role } : u))
   }
 
   async function handleToggleActive(id: string, active: boolean) {
+    setErrorMsg('')
     const res = await fetch(`/api/admin/users/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ active }),
     })
-    if (res.ok) setUsers(prev => prev.map(u => u.id === id ? { ...u, active } : u))
+    const data = await res.json()
+    if (!res.ok) { setErrorMsg(data.error ?? 'Failed to update status'); return }
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, active } : u))
   }
 
-  const navItems: { id: Tab; label: string }[] = [
+  async function handleSquadAssign(userId: string, squadId: string | null) {
+    setErrorMsg('')
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ squadId }),
+    })
+    const data = await res.json()
+    if (!res.ok) { setErrorMsg(data.error ?? 'Failed to assign squad'); return }
+    const newSquad = squads.find(s => s.id === squadId) ?? null
+    setUsers(prev => prev.map(u =>
+      u.id === userId
+        ? { ...u, squadId, squad: newSquad ? { id: newSquad.id, name: newSquad.name } : null }
+        : u
+    ))
+  }
+
+  async function handleSquadRename(id: string) {
+    if (!editingSquadName.trim()) return
+    setErrorMsg('')
+    const res = await fetch(`/api/admin/squads/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: editingSquadName.trim() }),
+    })
+    const data = await res.json()
+    if (!res.ok) { setErrorMsg(data.error ?? 'Failed to rename squad'); return }
+    setSquads(prev => prev.map(s => s.id === id ? { ...s, name: data.name } : s))
+    setEditingSquadId(null)
+  }
+
+  async function handleSquadDelete(id: string) {
+    setErrorMsg('')
+    const res = await fetch(`/api/admin/squads/${id}`, { method: 'DELETE' })
+    const data = await res.json()
+    if (!res.ok) { setErrorMsg(data.error ?? 'Failed to delete squad'); return }
+    setSquads(prev => prev.filter(s => s.id !== id))
+  }
+
+  const navItems: { id: Tab; label: string; adminOnly?: boolean }[] = [
     { id: 'users', label: 'Users' },
+    { id: 'squads', label: 'Squads' },
     { id: 'audit', label: 'Audit log' },
-    { id: 'settings', label: 'Settings' },
+    { id: 'settings', label: 'Settings', adminOnly: true },
   ]
+
+  const visibleNav = navItems.filter(item => !item.adminOnly || isAdmin)
 
   return (
     <>
@@ -224,7 +402,7 @@ export default function AdminPage() {
         </div>
 
         <nav className="flex-1 px-2 py-3 flex flex-col gap-0.5">
-          {navItems.map(item => (
+          {visibleNav.map(item => (
             <button
               key={item.id}
               onClick={() => setTab(item.id)}
@@ -248,14 +426,22 @@ export default function AdminPage() {
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 p-8">
+        {errorMsg && (
+          <div className="mb-4 max-w-4xl bg-red-50 border border-red-200 text-danger text-xs px-4 py-2 rounded-lg flex items-center justify-between">
+            {errorMsg}
+            <button onClick={() => setErrorMsg('')} className="ml-4 text-danger/60 hover:text-danger">×</button>
+          </div>
+        )}
+
+        {/* ── Users Tab ─────────────────────────────────────────────────── */}
         {tab === 'users' && (
-          <div className="flex flex-col gap-6 max-w-4xl">
+          <div className="flex flex-col gap-6 max-w-5xl">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-lg font-semibold text-ink-900">Users</h1>
                 <p className="text-xs text-ink-500 mt-0.5">Manage team members and their access roles.</p>
               </div>
-              <button onClick={() => setShowAddModal(true)} className="btn-primary text-sm">
+              <button onClick={() => setShowAddUserModal(true)} className="btn-primary text-sm">
                 + Add user
               </button>
             </div>
@@ -267,7 +453,7 @@ export default function AdminPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-ink-100">
-                      {['Name', 'Email', 'Role', 'Status', ''].map(h => (
+                      {['Name', 'Email', 'Role', 'Squad', 'Status', ''].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-medium text-ink-500">{h}</th>
                       ))}
                     </tr>
@@ -275,6 +461,9 @@ export default function AdminPage() {
                   <tbody>
                     {users.map(user => {
                       const isSelf = user.id === session?.user?.id
+                      const isTargetAdmin = user.role === 'ADMIN'
+                      const managerRestricted = viewerRole === 'MANAGER' && isTargetAdmin
+
                       return (
                         <tr key={user.id} className="border-b border-ink-50 last:border-0 hover:bg-ink-50/50 transition-colors">
                           <td className="px-4 py-3">
@@ -286,25 +475,56 @@ export default function AdminPage() {
                             </div>
                           </td>
                           <td className="px-4 py-3 font-mono text-xs text-ink-600">{user.email}</td>
+
+                          {/* Role dropdown */}
+                          <td className="px-4 py-3">
+                            {managerRestricted ? (
+                              <span className="text-xs text-ink-400 italic">Admin</span>
+                            ) : (
+                              <div className="relative group inline-block">
+                                <select
+                                  value={user.role}
+                                  onChange={e => handleRoleChange(user.id, e.target.value as Role)}
+                                  className="text-xs border border-ink-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:border-accent"
+                                >
+                                  {(Object.keys(ROLE_LABELS) as Role[]).map(r => {
+                                    const disabled = viewerRole === 'MANAGER' && r === 'ADMIN'
+                                    return (
+                                      <option key={r} value={r} disabled={disabled}
+                                        style={disabled ? { color: '#ccc' } : undefined}>
+                                        {ROLE_LABELS[r]}
+                                      </option>
+                                    )
+                                  })}
+                                </select>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Squad dropdown */}
                           <td className="px-4 py-3">
                             <select
-                              value={user.role}
-                              onChange={e => handleRoleChange(user.id, e.target.value as Role)}
-                              className="text-xs border border-ink-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:border-accent"
+                              value={user.squadId ?? ''}
+                              onChange={e => handleSquadAssign(user.id, e.target.value || null)}
+                              disabled={managerRestricted}
+                              className="text-xs border border-ink-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:border-accent disabled:opacity-50"
                             >
-                              {(Object.keys(ROLE_LABELS) as Role[]).map(r => (
-                                <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                              <option value="">— None —</option>
+                              {squads.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
                               ))}
                             </select>
                           </td>
+
+                          {/* Active toggle */}
                           <td className="px-4 py-3">
                             <div className="relative group inline-block">
                               <button
-                                onClick={() => !isSelf && handleToggleActive(user.id, !user.active)}
-                                disabled={isSelf}
+                                onClick={() => !isSelf && !managerRestricted && handleToggleActive(user.id, !user.active)}
+                                disabled={isSelf || managerRestricted}
                                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                                   user.active ? 'bg-success' : 'bg-ink-300'
-                                } ${isSelf ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                                } ${(isSelf || managerRestricted) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                               >
                                 <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${user.active ? 'translate-x-4' : 'translate-x-0.5'}`} />
                               </button>
@@ -315,6 +535,7 @@ export default function AdminPage() {
                               )}
                             </div>
                           </td>
+
                           <td className="px-4 py-3">
                             <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${user.active ? 'bg-green-50 text-success' : 'bg-ink-100 text-ink-400'}`}>
                               {user.active ? 'Active' : 'Disabled'}
@@ -334,6 +555,95 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* ── Squads Tab ────────────────────────────────────────────────── */}
+        {tab === 'squads' && (
+          <div className="flex flex-col gap-6 max-w-2xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-lg font-semibold text-ink-900">Squads</h1>
+                <p className="text-xs text-ink-500 mt-0.5">Organise team members into squads.</p>
+              </div>
+              <button onClick={() => setShowAddSquadModal(true)} className="btn-primary text-sm">
+                + Add squad
+              </button>
+            </div>
+
+            <div className="bg-white rounded-[12px] border border-ink-200 overflow-hidden">
+              {loadingSquads ? (
+                <div className="p-8 text-center text-sm text-ink-400">Loading…</div>
+              ) : squads.length === 0 ? (
+                <div className="p-8 text-center text-sm text-ink-400">No squads yet. Add your first squad.</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-ink-100">
+                      {['Name', 'Members', 'Actions'].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-medium text-ink-500">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {squads.map(squad => (
+                      <tr key={squad.id} className="border-b border-ink-50 last:border-0 hover:bg-ink-50/50 transition-colors">
+                        <td className="px-4 py-3">
+                          {editingSquadId === squad.id ? (
+                            <input
+                              ref={editInputRef}
+                              value={editingSquadName}
+                              onChange={e => setEditingSquadName(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') handleSquadRename(squad.id)
+                                if (e.key === 'Escape') setEditingSquadId(null)
+                              }}
+                              onBlur={() => handleSquadRename(squad.id)}
+                              className="text-sm border border-accent rounded-md px-2 py-1 focus:outline-none w-48"
+                            />
+                          ) : (
+                            <span className="font-medium text-ink-900">{squad.name}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-ink-500">
+                          <span className="font-mono text-xs bg-ink-100 px-2 py-0.5 rounded-full">
+                            {squad._count.members}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            {editingSquadId === squad.id ? (
+                              <button
+                                onClick={() => setEditingSquadId(null)}
+                                className="text-xs text-ink-400 hover:text-ink-700"
+                              >
+                                Cancel
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => { setEditingSquadId(squad.id); setEditingSquadName(squad.name) }}
+                                className="text-xs text-accent hover:underline"
+                              >
+                                Rename
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleSquadDelete(squad.id)}
+                              disabled={squad._count.members > 0}
+                              title={squad._count.members > 0 ? 'Remove all members first' : 'Delete squad'}
+                              className="text-xs text-danger hover:underline disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Audit Tab ─────────────────────────────────────────────────── */}
         {tab === 'audit' && (
           <div className="flex flex-col gap-4 max-w-4xl">
             <div>
@@ -371,7 +681,8 @@ export default function AdminPage() {
           </div>
         )}
 
-        {tab === 'settings' && (
+        {/* ── Settings Tab (Admin only) ──────────────────────────────────── */}
+        {tab === 'settings' && isAdmin && (
           <div className="max-w-xl">
             <h1 className="text-lg font-semibold text-ink-900 mb-4">Settings</h1>
             <div className="bg-white rounded-[12px] border border-ink-200 p-6 text-sm text-ink-500">
@@ -381,10 +692,19 @@ export default function AdminPage() {
         )}
       </div>
 
-      {showAddModal && (
+      {showAddUserModal && (
         <AddUserModal
-          onClose={() => setShowAddModal(false)}
+          onClose={() => setShowAddUserModal(false)}
           onCreated={fetchUsers}
+          squads={squads}
+          viewerRole={viewerRole}
+        />
+      )}
+
+      {showAddSquadModal && (
+        <AddSquadModal
+          onClose={() => setShowAddSquadModal(false)}
+          onCreated={fetchSquads}
         />
       )}
     </>

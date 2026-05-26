@@ -3,6 +3,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
 import { useSession as useQASession } from '@/lib/session-context'
 import { useSession as useAuthSession, signOut } from 'next-auth/react'
 import { ThemeToggle } from '@/app/components/ThemeToggle'
@@ -25,6 +26,13 @@ const ROLE_BADGE_STYLE: Record<Role, { bg: string; color: string }> = {
 
 function initials(name: string) {
   return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()
+}
+
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+  return [h, m, s].map(v => String(v).padStart(2, '0')).join(':')
 }
 
 interface NavItem {
@@ -114,7 +122,7 @@ function IconReport() {
 
 export function Sidebar() {
   const pathname = usePathname()
-  const { standardTCs, e2eTCs, apiTCs } = useQASession()
+  const { standardTCs, e2eTCs, apiTCs, jiraKey } = useQASession()
   const { data: authSession, status: authStatus } = useAuthSession()
   const authUser = authSession?.user
   const role = authUser?.role as Role | undefined
@@ -123,6 +131,72 @@ export function Sidebar() {
   const isLoggedIn = authStatus === 'authenticated'
   const isLanding = pathname === '/'
   const hasSession = standardTCs.length > 0 || e2eTCs.length > 0 || apiTCs.length > 0
+  const inSessionPages = pathname.startsWith('/session/')
+
+  // ── Timesheet timer (QA_ENGINEER only) ────────────────────────────────────
+  const [timesheetId, setTimesheetId] = useState<string | null>(null)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [timerTicket, setTimerTicket] = useState<string | null>(null)
+  const startTimeRef = useRef<Date | null>(null)
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  function clearTick() {
+    if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null }
+  }
+
+  async function startTimer(ticket: string) {
+    try {
+      const res = await fetch('/api/timesheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketKey: ticket }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setTimesheetId(data.id)
+        setTimerTicket(ticket)
+        startTimeRef.current = new Date()
+        setElapsedSeconds(0)
+        clearTick()
+        tickRef.current = setInterval(() => {
+          setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current!.getTime()) / 1000))
+        }, 1000)
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function stopTimer() {
+    clearTick()
+    if (timesheetId) {
+      try {
+        await fetch('/api/timesheet', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ timesheetId }),
+        })
+      } catch { /* ignore */ }
+    }
+    setTimesheetId(null)
+    setTimerTicket(null)
+    setElapsedSeconds(0)
+    startTimeRef.current = null
+  }
+
+  useEffect(() => {
+    if (role !== 'QA_ENGINEER' || !isLoggedIn) return
+
+    if (inSessionPages && jiraKey) {
+      if (!timesheetId || timerTicket !== jiraKey) {
+        startTimer(jiraKey)
+      }
+    } else if (timesheetId) {
+      stopTimer()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, isLoggedIn, inSessionPages, jiraKey])
+
+  // Stop timer on unmount
+  useEffect(() => () => clearTick(), [])
 
   const sections: NavSection[] = [
     {
@@ -180,7 +254,6 @@ export function Sidebar() {
             </p>
             <ul className="flex flex-col gap-0.5">
               {section.items.map(item => {
-                // Not logged in — all items disabled
                 if (!isLoggedIn) {
                   return (
                     <li key={item.href}>
@@ -213,7 +286,6 @@ export function Sidebar() {
                   )
                 }
 
-                // Generate TC on the landing page: stay on page, scroll to top
                 if (isLanding && item.href === '/session/generate') {
                   return (
                     <li key={item.href}>
@@ -260,8 +332,18 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Admin link — ADMIN only */}
-      {isLoggedIn && role === 'ADMIN' && (
+      {/* Timesheet timer — QA_ENGINEER only, while in session with a ticket */}
+      {isLoggedIn && role === 'QA_ENGINEER' && timesheetId && timerTicket && (
+        <div className="px-3 py-2 mx-2 mb-1 bg-accent/8 dark:bg-accent/15 rounded-lg border border-accent/20">
+          <p className="font-mono text-[10px] text-accent font-semibold tracking-wider">
+            ⏱ {formatDuration(elapsedSeconds)}
+          </p>
+          <p className="text-[10px] text-ink-500 dark:text-ink-400 truncate mt-0.5">{timerTicket}</p>
+        </div>
+      )}
+
+      {/* Admin link — ADMIN and MANAGER */}
+      {isLoggedIn && (role === 'ADMIN' || role === 'MANAGER') && (
         <div className="px-2 pb-1">
           <Link
             href="/admin"

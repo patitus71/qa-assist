@@ -38,4 +38,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# sqlite dev database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
 .vercel

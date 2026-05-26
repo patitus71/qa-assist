@@ -58,7 +58,11 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  session: { strategy: 'jwt' },
+  session: {
+    strategy: 'jwt',
+    maxAge: 30 * 60,  // 30-minute inactivity timeout
+    updateAge: 0,     // reset expiry on every request
+  },
   callbacks: {
     jwt({ token, user }) {
       if (user) {
