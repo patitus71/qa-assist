@@ -476,7 +476,7 @@ export default function LandingPage() {
         </div>
         <h1 className="text-3xl font-bold text-ink-900 mb-2">Where do you want to start?</h1>
         <p className="text-ink-500 text-sm">
-          No login required — paste a Jira key, type your requirement, or import an existing Excel file.
+          Paste a Jira key, type your requirement, or import an existing Excel file.
         </p>
       </div>
 

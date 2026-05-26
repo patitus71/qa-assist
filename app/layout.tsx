@@ -2,7 +2,7 @@
 import type { Metadata } from 'next'
 import { DM_Sans, DM_Mono } from 'next/font/google'
 import './globals.css'
-import { SessionProvider } from '@/lib/session-context'
+import { Providers } from './providers'
 import { Sidebar } from '@/app/components/Sidebar'
 
 const dmSans = DM_Sans({
@@ -44,14 +44,14 @@ export default function RootLayout({
         ` }} />
       </head>
       <body>
-        <SessionProvider>
+        <Providers>
           <div className="flex min-h-screen bg-ink-50 dark:bg-ink-900">
             <Sidebar />
             <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
               {children}
             </div>
           </div>
-        </SessionProvider>
+        </Providers>
       </body>
     </html>
   )
