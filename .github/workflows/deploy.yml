@@ -2,7 +2,7 @@ name: Deploy to Cloudflare Pages
 
 on:
   push:
-    branches: [master]
+    branches: [main]
 
 jobs:
   deploy:
@@ -32,4 +32,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: 0e426f5fda035165f90a3d2404f22714
-          command: pages deploy .vercel/output/static --project-name=qa-assist --branch=master
+          command: pages deploy .vercel/output/static --project-name=qa-assist --branch=main
