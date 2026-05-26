@@ -193,6 +193,150 @@ function EmailReportPanel({ scopeLabel }: { scopeLabel: string }) {
   )
 }
 
+// ─── Squad timesheet panel ────────────────────────────────────────────────────
+
+interface SquadMember {
+  userId: string
+  name: string
+  totalMinutes: number
+  activeTicket: string | null
+  activeTicketName: string | null
+}
+
+function formatHM(mins: number) {
+  const h = Math.floor(mins / 60); const m = mins % 60
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`
+  return `${m}m`
+}
+
+function initials2(name: string) {
+  return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()
+}
+
+interface SquadOption { id: string; name: string }
+
+function SquadTimesheetPanel({ isManager }: { isManager: boolean }) {
+  const [members, setMembers] = useState<SquadMember[]>([])
+  const [squads, setSquads] = useState<SquadOption[]>([])
+  const [selectedSquad, setSelectedSquad] = useState<string>('')
+  const [filter, setFilter] = useState<'today' | 'week'>('today')
+  const [loading, setLoading] = useState(true)
+
+  const loadSquads = useCallback(async () => {
+    if (!isManager) return
+    try {
+      const res = await fetch('/api/admin/squads')
+      if (res.ok) {
+        const data: SquadOption[] = await res.json()
+        setSquads(data)
+      }
+    } catch { /* ignore */ }
+  }, [isManager])
+
+  const loadMembers = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({ filter })
+      if (selectedSquad) params.set('squadId', selectedSquad)
+      const res = await fetch(`/api/timesheet/squad?${params}`)
+      if (res.ok) setMembers(await res.json())
+    } catch { /* ignore */ }
+    finally { setLoading(false) }
+  }, [filter, selectedSquad])
+
+  useEffect(() => { loadSquads() }, [loadSquads])
+  useEffect(() => { loadMembers() }, [loadMembers])
+
+  return (
+    <div className="bg-white rounded-[12px] border border-ink-200 overflow-hidden">
+      <div className="px-4 py-3 border-b border-ink-100 flex items-center gap-3 flex-wrap">
+        <h2 className="text-sm font-semibold text-ink-900 mr-auto">
+          Squad timesheet
+        </h2>
+        {isManager && squads.length > 0 && (
+          <select
+            value={selectedSquad}
+            onChange={e => setSelectedSquad(e.target.value)}
+            className="text-xs border border-ink-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:border-accent"
+          >
+            <option value="">All squads</option>
+            {squads.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        )}
+        <div className="flex gap-1 bg-ink-50 rounded-md p-0.5">
+          {(['today', 'week'] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                filter === f ? 'bg-white shadow-sm text-ink-900' : 'text-ink-500 hover:text-ink-700'
+              }`}
+            >
+              {f === 'today' ? 'Today' : 'This week'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="p-6 text-center text-sm text-ink-400">Loading…</div>
+      ) : members.length === 0 ? (
+        <div className="p-6 text-center text-sm text-ink-400">No engineers with time logged.</div>
+      ) : (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-ink-100">
+              {['Member', 'Active ticket', 'Time logged', 'Status'].map(h => (
+                <th key={h} className="px-4 py-3 text-left text-xs font-medium text-ink-500">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {members.map(m => (
+              <tr key={m.userId} className="border-b border-ink-50 last:border-0 hover:bg-ink-50/50">
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-7 h-7 rounded-full bg-accent/10 text-accent flex items-center justify-center text-[10px] font-semibold shrink-0">
+                      {initials2(m.name)}
+                    </span>
+                    <span className="text-ink-900 font-medium">{m.name}</span>
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  {m.activeTicket ? (
+                    <div>
+                      <span className="tc-id text-xs">{m.activeTicket}</span>
+                      {m.activeTicketName && (
+                        <p className="text-xs text-ink-500 mt-0.5 max-w-[160px] truncate">{m.activeTicketName}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-ink-400">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 font-mono font-semibold text-ink-900">
+                  {m.totalMinutes > 0 ? formatHM(m.totalMinutes) : <span className="text-ink-400 font-normal">0m</span>}
+                </td>
+                <td className="px-4 py-3">
+                  {m.activeTicket ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: '#F0FDF4', color: '#0B7A51' }}>
+                      Active
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-ink-100 text-ink-500">
+                      Idle
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
+
 // ─── QA Lead view ─────────────────────────────────────────────────────────────
 
 function QALeadDashboard({ name }: { name: string }) {
@@ -224,6 +368,8 @@ function QALeadDashboard({ name }: { name: string }) {
         </div>
         <div className="p-8 text-center text-sm text-ink-400">No pending approvals.</div>
       </div>
+
+      <SquadTimesheetPanel isManager={false} />
 
       <EmailReportPanel scopeLabel="my squad" />
     </div>
@@ -287,6 +433,8 @@ function ManagerDashboard({ name }: { name: string }) {
         </div>
         <div className="p-8 text-center text-sm text-ink-400">No sprint data available.</div>
       </div>
+
+      <SquadTimesheetPanel isManager={true} />
 
       <EmailReportPanel scopeLabel="all squads" />
     </div>
