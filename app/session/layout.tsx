@@ -9,12 +9,17 @@ import { useSession as useQASession } from '@/lib/session-context'
 function SessionExpiryGuard({ children }: { children: ReactNode }) {
   const { status } = useSession()
   const router = useRouter()
-  const { requirement, jiraKey, standardTCs, e2eTCs, apiTCs } = useQASession()
+  const qaSession = useQASession()
   const [showExpiredModal, setShowExpiredModal] = useState(false)
   const wasAuthenticated = useRef(false)
   const autoSaveInterval = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Ref always holds the latest session state — avoids stale closure in interval
+  const latestSession = useRef(qaSession)
+  useEffect(() => { latestSession.current = qaSession })
+
   async function saveToDb() {
+    const { requirement, jiraKey, standardTCs, e2eTCs, apiTCs } = latestSession.current
     try {
       const sessionData = {
         requirement,
@@ -35,7 +40,7 @@ function SessionExpiryGuard({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (status === 'authenticated') {
       wasAuthenticated.current = true
-      // Auto-save every 5 minutes
+      // Auto-save every 5 minutes using latest state via ref
       autoSaveInterval.current = setInterval(saveToDb, 5 * 60 * 1000)
     }
 

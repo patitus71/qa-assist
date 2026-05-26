@@ -280,6 +280,7 @@ export default function AdminPage() {
   const [editingSquadId, setEditingSquadId] = useState<string | null>(null)
   const [editingSquadName, setEditingSquadName] = useState('')
   const editInputRef = useRef<HTMLInputElement>(null)
+  const cancellingSquadEdit = useRef(false)
 
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true)
@@ -405,7 +406,7 @@ export default function AdminPage() {
           {visibleNav.map(item => (
             <button
               key={item.id}
-              onClick={() => setTab(item.id)}
+              onClick={() => { setTab(item.id); setErrorMsg('') }}
               className={`w-full text-left flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
                 tab === item.id
                   ? 'bg-accent text-white'
@@ -593,9 +594,18 @@ export default function AdminPage() {
                               onChange={e => setEditingSquadName(e.target.value)}
                               onKeyDown={e => {
                                 if (e.key === 'Enter') handleSquadRename(squad.id)
-                                if (e.key === 'Escape') setEditingSquadId(null)
+                                if (e.key === 'Escape') { cancellingSquadEdit.current = true; setEditingSquadId(null) }
                               }}
-                              onBlur={() => handleSquadRename(squad.id)}
+                              onBlur={() => {
+                                // Give Cancel button's onClick time to set the flag first
+                                setTimeout(() => {
+                                  if (cancellingSquadEdit.current) {
+                                    cancellingSquadEdit.current = false
+                                  } else {
+                                    handleSquadRename(squad.id)
+                                  }
+                                }, 100)
+                              }}
                               className="text-sm border border-accent rounded-md px-2 py-1 focus:outline-none w-48"
                             />
                           ) : (
@@ -611,7 +621,8 @@ export default function AdminPage() {
                           <div className="flex items-center gap-2">
                             {editingSquadId === squad.id ? (
                               <button
-                                onClick={() => setEditingSquadId(null)}
+                                onMouseDown={() => { cancellingSquadEdit.current = true }}
+                                onClick={() => { setEditingSquadId(null) }}
                                 className="text-xs text-ink-400 hover:text-ink-700"
                               >
                                 Cancel
