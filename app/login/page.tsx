@@ -1,18 +1,28 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
-import { signIn } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect, type FormEvent } from 'react'
+import { signIn, getSession, useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { Suspense } from 'react'
+
+function roleDestination(role: string | undefined): string {
+  return role === 'ADMIN' ? '/admin' : '/dashboard'
+}
 
 function LoginForm() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') ?? '/dashboard'
+  const { data: session, status } = useSession()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Already logged in → redirect immediately
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      router.replace(roleDestination(session.user.role))
+    }
+  }, [status, session, router])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -25,11 +35,20 @@ function LoginForm() {
       } else if (result?.error) {
         setError('Invalid email or password.')
       } else {
-        router.push(callbackUrl)
+        const s = await getSession()
+        router.push(roleDestination(s?.user?.role))
       }
     } finally {
       setLoading(false)
     }
+  }
+
+  if (status === 'loading' || status === 'authenticated') {
+    return (
+      <main className="min-h-screen bg-[#F4F4F6] flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      </main>
+    )
   }
 
   return (
