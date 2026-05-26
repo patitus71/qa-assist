@@ -115,11 +115,12 @@ function IconReport() {
 export function Sidebar() {
   const pathname = usePathname()
   const { standardTCs, e2eTCs, apiTCs } = useQASession()
-  const { data: authSession } = useAuthSession()
+  const { data: authSession, status: authStatus } = useAuthSession()
   const authUser = authSession?.user
   const role = authUser?.role as Role | undefined
   const roleBadge = role ? ROLE_BADGE_STYLE[role] : null
 
+  const isLoggedIn = authStatus === 'authenticated'
   const isLanding = pathname === '/'
   const hasSession = standardTCs.length > 0 || e2eTCs.length > 0 || apiTCs.length > 0
 
@@ -179,6 +180,21 @@ export function Sidebar() {
             </p>
             <ul className="flex flex-col gap-0.5">
               {section.items.map(item => {
+                // Not logged in — all items disabled
+                if (!isLoggedIn) {
+                  return (
+                    <li key={item.href}>
+                      <div
+                        style={{ color: '#A8A8B0', pointerEvents: 'none', opacity: 0.5 }}
+                        className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm cursor-not-allowed select-none"
+                      >
+                        <span className="shrink-0">{item.icon}</span>
+                        <span className="flex-1 whitespace-nowrap">{item.label}</span>
+                      </div>
+                    </li>
+                  )
+                }
+
                 const active = pathname === item.href || pathname.startsWith(item.href + '/')
                 const disabled = isLanding && !hasSession && !item.alwaysActive
 
@@ -245,7 +261,7 @@ export function Sidebar() {
       </nav>
 
       {/* Admin link — ADMIN only */}
-      {role === 'ADMIN' && (
+      {isLoggedIn && role === 'ADMIN' && (
         <div className="px-2 pb-1">
           <Link
             href="/admin"
@@ -262,37 +278,51 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="px-3 py-3 border-t border-ink-100 dark:border-ink-700">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="w-7 h-7 rounded-full bg-accent text-white flex items-center justify-center text-[11px] font-semibold shrink-0">
-            {authUser?.name ? initials(authUser.name) : '?'}
-          </span>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-ink-900 dark:text-ink-100 truncate">{authUser?.name ?? '—'}</p>
-            {role && roleBadge && (
-              <span
-                className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-                style={{ background: roleBadge.bg, color: roleBadge.color }}
-              >
-                {ROLE_LABELS[role]}
+        {isLoggedIn ? (
+          <>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-7 h-7 rounded-full bg-accent text-white flex items-center justify-center text-[11px] font-semibold shrink-0">
+                {authUser?.name ? initials(authUser.name) : '?'}
               </span>
-            )}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-ink-900 dark:text-ink-100 truncate">{authUser?.name ?? '—'}</p>
+                {role && roleBadge && (
+                  <span
+                    className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                    style={{ background: roleBadge.bg, color: roleBadge.color }}
+                  >
+                    {ROLE_LABELS[role]}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => signOut({ callbackUrl: '/login' })}
+                title="Sign out"
+                className="text-ink-400 hover:text-danger transition-colors shrink-0"
+              >
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                  <path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M10 11l3-3-3-3M13 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex items-center justify-between">
+              <Link href="/" className="text-xs text-ink-400 hover:text-ink-600 transition-colors">
+                ← New session
+              </Link>
+              <ThemeToggle />
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            <Link
+              href="/login"
+              className="flex-1 btn-primary text-xs py-2 text-center"
+            >
+              Sign in
+            </Link>
+            <ThemeToggle />
           </div>
-          <button
-            onClick={() => signOut({ callbackUrl: '/login' })}
-            title="Sign out"
-            className="text-ink-400 hover:text-danger transition-colors shrink-0"
-          >
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-              <path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M10 11l3-3-3-3M13 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </div>
-        <div className="flex items-center justify-between">
-          <Link href="/" className="text-xs text-ink-400 hover:text-ink-600 transition-colors">
-            ← New session
-          </Link>
-          <ThemeToggle />
-        </div>
+        )}
       </div>
     </aside>
   )
