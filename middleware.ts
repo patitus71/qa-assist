@@ -1,5 +1,6 @@
 import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
+import { ROUTE_PERMISSION_MAP } from "@/lib/permissions"
 
 export default withAuth(
   function middleware(req) {
@@ -8,7 +9,21 @@ export default withAuth(
 
     // Admin panel: ADMIN and MANAGER only
     if (pathname.startsWith("/admin") && token?.role !== "ADMIN" && token?.role !== "MANAGER") {
-      return NextResponse.redirect(new URL("/dashboard", req.url))
+      return NextResponse.redirect(new URL("/", req.url))
+    }
+
+    // Permission-based route protection
+    // Skip API routes — those protect themselves via getServerSession
+    if (!pathname.startsWith("/api/")) {
+      const perms = (token?.permissions as string[] | undefined) ?? []
+      for (const { prefix, key } of ROUTE_PERMISSION_MAP) {
+        if (pathname.startsWith(prefix)) {
+          if (!perms.includes(key)) {
+            return NextResponse.redirect(new URL("/", req.url))
+          }
+          break
+        }
+      }
     }
 
     return NextResponse.next()

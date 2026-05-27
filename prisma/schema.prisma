@@ -88,3 +88,16 @@ model EmailConfig {
   user       User     @relation(fields: [userId], references: [id])
   squad      Squad?   @relation(fields: [squadId], references: [id])
 }
+
+// Role-based menu access control.
+// ADMIN always has all permissions (enforced in code, no rows stored for ADMIN).
+model Permission {
+  id        String   @id @default(cuid())
+  role      String
+  menuKey   String
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@unique([role, menuKey])
+}

@@ -8,6 +8,7 @@ import { useSession as useQASession } from '@/lib/session-context'
 import { useSession as useAuthSession, signOut } from 'next-auth/react'
 import { useTimesheetContextSafe } from '@/lib/timesheet-context'
 import { ThemeToggle } from '@/app/components/ThemeToggle'
+import type { MenuKey } from '@/lib/permissions'
 
 type Role = 'ADMIN' | 'QA_LEAD' | 'QA_ENGINEER' | 'MANAGER'
 
@@ -200,8 +201,8 @@ function IconDashboard() {
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
-interface NavItem { label: string; href: string; badge?: number; icon: React.ReactNode; alwaysActive?: boolean; roles?: Role[] }
-interface NavSection { heading: string; items: NavItem[]; qaEngineerOnly?: boolean }
+interface NavItem { label: string; href: string; badge?: number; icon: React.ReactNode; alwaysActive?: boolean; permKey?: MenuKey }
+interface NavSection { heading: string; items: NavItem[] }
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -209,6 +210,7 @@ export function Sidebar() {
   const { data: authSession, status: authStatus } = useAuthSession()
   const authUser = authSession?.user
   const role = authUser?.role as Role | undefined
+  const userPerms: string[] = (authUser as { permissions?: string[] })?.permissions ?? []
   const roleBadge = role ? ROLE_BADGE_STYLE[role] : null
 
   const isLoggedIn = authStatus === 'authenticated'
@@ -226,24 +228,24 @@ export function Sidebar() {
     {
       heading: 'TEST CASES',
       items: [
-        { label: 'Standard', href: '/session/standard', badge: standardTCs.length || undefined, icon: <IconList /> },
-        { label: 'E2E', href: '/session/e2e', badge: e2eTCs.length || undefined, icon: <IconFlow /> },
-        { label: 'API', href: '/session/api', badge: apiTCs.length || undefined, icon: <IconApi /> },
+        { label: 'Standard', href: '/session/standard', badge: standardTCs.length || undefined, icon: <IconList />, permKey: 'standard' },
+        { label: 'E2E', href: '/session/e2e', badge: e2eTCs.length || undefined, icon: <IconFlow />, permKey: 'e2e' },
+        { label: 'API', href: '/session/api', badge: apiTCs.length || undefined, icon: <IconApi />, permKey: 'api' },
       ],
     },
     {
       heading: 'EXPORT',
       items: [
-        { label: 'Robot', href: '/session/robot', icon: <IconRobot /> },
-        { label: 'Export / Push', href: '/session/export', icon: <IconExport /> },
+        { label: 'Robot', href: '/session/robot', icon: <IconRobot />, permKey: 'robot' },
+        { label: 'Export / Push', href: '/session/export', icon: <IconExport />, permKey: 'export' },
       ],
     },
     {
       heading: 'REPORT',
       items: [
-        { label: 'Dashboard', href: '/dashboard', icon: <IconDashboard />, alwaysActive: true, roles: ['QA_LEAD'] },
-        { label: 'Report', href: '/session/report', icon: <IconReport /> },
-        { label: 'Timesheet', href: '/session/timesheet', icon: <IconClock /> },
+        { label: 'Dashboard', href: '/dashboard', icon: <IconDashboard />, alwaysActive: true, permKey: 'dashboard' },
+        { label: 'Report', href: '/session/report', icon: <IconReport />, permKey: 'report' },
+        { label: 'Timesheet', href: '/session/timesheet', icon: <IconClock />, permKey: 'timesheet' },
       ],
     },
   ]
@@ -273,8 +275,8 @@ export function Sidebar() {
             </p>
             <ul className="flex flex-col gap-0.5">
               {section.items.map(item => {
-                // Hide role-restricted items for non-matching roles
-                if (item.roles && (!role || !item.roles.includes(role))) return null
+                // Hide items the user lacks permission for (ADMIN always passes)
+                if (item.permKey && isLoggedIn && role !== 'ADMIN' && !userPerms.includes(item.permKey)) return null
 
                 if (!isLoggedIn) {
                   return (

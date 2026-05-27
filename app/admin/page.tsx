@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession, signOut } from 'next-auth/react'
+import { ALL_MENU_KEYS, MENU_LABELS, MENU_SECTIONS } from '@/lib/permissions'
 
 type Role = 'ADMIN' | 'QA_LEAD' | 'QA_ENGINEER' | 'MANAGER'
-type Tab = 'users' | 'squads' | 'audit' | 'settings'
+type Tab = 'users' | 'squads' | 'audit' | 'settings' | 'permissions'
 
 interface SquadRef { id: string; name: string }
 
@@ -281,6 +282,12 @@ export default function AdminPage() {
   const editInputRef = useRef<HTMLInputElement>(null)
   const cancellingSquadEdit = useRef(false)
 
+  // Permission matrix state: { [role]: { [menuKey]: boolean } }
+  type PermMatrix = Record<string, Record<string, boolean>>
+  const [permMatrix, setPermMatrix] = useState<PermMatrix>({})
+  const [loadingPerms, setLoadingPerms] = useState(false)
+  const [togglingPerm, setTogglingPerm] = useState<string | null>(null) // "role:menuKey"
+
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true)
     try {
@@ -306,9 +313,20 @@ export default function AdminPage() {
     if (res.ok) setAuditLogs(await res.json())
   }, [])
 
+  const fetchPerms = useCallback(async () => {
+    setLoadingPerms(true)
+    try {
+      const res = await fetch('/api/admin/permissions')
+      if (res.ok) setPermMatrix(await res.json())
+    } finally {
+      setLoadingPerms(false)
+    }
+  }, [])
+
   useEffect(() => { fetchUsers() }, [fetchUsers])
   useEffect(() => { fetchSquads() }, [fetchSquads])
   useEffect(() => { if (tab === 'audit') fetchAudit() }, [tab, fetchAudit])
+  useEffect(() => { if (tab === 'permissions') fetchPerms() }, [tab, fetchPerms])
 
   useEffect(() => {
     if (editingSquadId && editInputRef.current) editInputRef.current.focus()
@@ -369,6 +387,29 @@ export default function AdminPage() {
     setEditingSquadId(null)
   }
 
+  async function handlePermToggle(role: string, menuKey: string, enabled: boolean) {
+    const key = `${role}:${menuKey}`
+    setTogglingPerm(key)
+    try {
+      const res = await fetch('/api/admin/permissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role, menuKey, enabled }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        setErrorMsg(data.error ?? 'Failed to update permission')
+        return
+      }
+      setPermMatrix(prev => ({
+        ...prev,
+        [role]: { ...prev[role], [menuKey]: enabled },
+      }))
+    } finally {
+      setTogglingPerm(null)
+    }
+  }
+
   async function handleSquadDelete(id: string) {
     setErrorMsg('')
     const res = await fetch(`/api/admin/squads/${id}`, { method: 'DELETE' })
@@ -381,6 +422,7 @@ export default function AdminPage() {
     { id: 'users', label: 'Users' },
     { id: 'squads', label: 'Squads' },
     { id: 'audit', label: 'Audit log' },
+    { id: 'permissions', label: 'Permissions', adminOnly: true },
     { id: 'settings', label: 'Settings', adminOnly: true },
   ]
 
@@ -668,6 +710,101 @@ export default function AdminPage() {
                 </table>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ── Permissions Tab (Admin only) ──────────────────────────────── */}
+        {tab === 'permissions' && isAdmin && (
+          <div className="flex flex-col gap-6 max-w-4xl">
+            <div>
+              <h1 className="text-lg font-semibold text-ink-900">Role permissions</h1>
+              <p className="text-xs text-ink-500 mt-0.5">
+                Control which menu items each role can access. Changes take effect at the user&apos;s next login.
+              </p>
+            </div>
+
+            {loadingPerms ? (
+              <div className="p-8 text-center text-sm text-ink-400">Loading…</div>
+            ) : (
+              <div className="bg-white rounded-[12px] border border-ink-200 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-ink-100">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-ink-500 w-40">Menu item</th>
+                      {/* ADMIN column — read-only, always all */}
+                      <th className="px-4 py-3 text-center text-xs font-medium text-ink-500 w-28">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-medium" style={{ background: '#FEF2F2', color: '#C0392B' }}>Admin</span>
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-ink-500 w-28">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-medium" style={{ background: '#EEF2FF', color: '#3730A3' }}>QA Lead</span>
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-ink-500 w-28">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-medium" style={{ background: '#EEF4FF', color: '#1A56DB' }}>QA Engineer</span>
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-ink-500 w-28">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-medium" style={{ background: '#ECFDF5', color: '#0B7A51' }}>Manager</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {MENU_SECTIONS.map(section => (
+                      <>
+                        {/* Section heading row */}
+                        <tr key={`section-${section.heading}`} className="bg-ink-50/60">
+                          <td colSpan={5} className="px-4 py-1.5">
+                            <span className="font-mono text-[10px] font-semibold tracking-widest text-ink-400 uppercase">
+                              {section.heading}
+                            </span>
+                          </td>
+                        </tr>
+                        {section.keys.map(menuKey => {
+                          const roleOrder = ['QA_LEAD', 'QA_ENGINEER', 'MANAGER']
+                          return (
+                            <tr key={menuKey} className="border-t border-ink-50 hover:bg-ink-50/40 transition-colors">
+                              <td className="px-4 py-3 text-xs font-medium text-ink-700">
+                                {MENU_LABELS[menuKey]}
+                              </td>
+                              {/* ADMIN — always on, read-only */}
+                              <td className="px-4 py-3 text-center">
+                                <div className="flex justify-center">
+                                  <span className="inline-flex h-5 w-9 items-center rounded-full bg-success opacity-60 cursor-not-allowed">
+                                    <span className="inline-block h-3.5 w-3.5 rounded-full bg-white shadow translate-x-4" />
+                                  </span>
+                                </div>
+                              </td>
+                              {roleOrder.map(role => {
+                                const enabled = permMatrix[role]?.[menuKey] ?? false
+                                const toggling = togglingPerm === `${role}:${menuKey}`
+                                return (
+                                  <td key={role} className="px-4 py-3 text-center">
+                                    <div className="flex justify-center">
+                                      <button
+                                        onClick={() => handlePermToggle(role, menuKey, !enabled)}
+                                        disabled={toggling}
+                                        title={enabled ? 'Click to revoke' : 'Click to grant'}
+                                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                          enabled ? 'bg-accent' : 'bg-ink-300'
+                                        } ${toggling ? 'opacity-50 cursor-wait' : 'cursor-pointer hover:opacity-80'}`}
+                                      >
+                                        <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          )
+                        })}
+                      </>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <p className="text-xs text-ink-400 italic">
+              Note: Users must sign out and back in for permission changes to take effect.
+            </p>
           </div>
         )}
 

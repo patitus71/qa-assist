@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { hash } from 'bcryptjs'
+import { ALL_MENU_KEYS, DEFAULT_PERMISSIONS } from '../lib/permissions'
 
 const prisma = new PrismaClient()
 
@@ -22,8 +23,22 @@ async function main() {
       create: { name: u.name, email: u.email, passwordHash, role: u.role, active: true },
     })
   }
-
   console.log('Seeded 4 users.')
+
+  // Seed role permissions (skip ADMIN — always all-access in code)
+  const roles = ['QA_LEAD', 'QA_ENGINEER', 'MANAGER']
+  for (const role of roles) {
+    const allowed = DEFAULT_PERMISSIONS[role] ?? [...ALL_MENU_KEYS]
+    for (const menuKey of ALL_MENU_KEYS) {
+      const enabled = allowed.includes(menuKey)
+      await prisma.permission.upsert({
+        where: { role_menuKey: { role, menuKey } },
+        update: {},   // Don't overwrite admin's manual changes on re-seed
+        create: { role, menuKey, enabled },
+      })
+    }
+  }
+  console.log('Seeded permissions.')
 }
 
 main()

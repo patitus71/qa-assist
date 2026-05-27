@@ -7,16 +7,19 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import { compare } from 'bcryptjs'
 import prisma from './prisma'
 import type { NextAuthOptions, DefaultSession } from 'next-auth'
+import { ALL_MENU_KEYS, DEFAULT_PERMISSIONS } from './permissions'
 
 declare module 'next-auth' {
   interface Session {
     user: DefaultSession['user'] & {
       id: string
       role: 'ADMIN' | 'QA_LEAD' | 'QA_ENGINEER' | 'MANAGER'
+      permissions: string[]
     }
   }
   interface User {
     role: 'ADMIN' | 'QA_LEAD' | 'QA_ENGINEER' | 'MANAGER'
+    permissions: string[]
   }
 }
 
@@ -24,6 +27,7 @@ declare module 'next-auth/jwt' {
   interface JWT {
     id: string
     role: 'ADMIN' | 'QA_LEAD' | 'QA_ENGINEER' | 'MANAGER'
+    permissions: string[]
   }
 }
 
@@ -49,11 +53,29 @@ export const authOptions: NextAuthOptions = {
 
         if (!user.active) throw new Error('AccountDisabled')
 
+        // Load permissions from DB and embed in the JWT.
+        // ADMIN always gets all keys (not stored in DB).
+        // Other roles fall back to defaults if no rows exist (fail-open).
+        let permissions: string[]
+        if (user.role === 'ADMIN') {
+          permissions = [...ALL_MENU_KEYS]
+        } else {
+          const dbPerms = await prisma.permission.findMany({
+            where: { role: user.role },
+          })
+          if (dbPerms.length === 0) {
+            permissions = DEFAULT_PERMISSIONS[user.role] ?? [...ALL_MENU_KEYS]
+          } else {
+            permissions = dbPerms.filter(p => p.enabled).map(p => p.menuKey)
+          }
+        }
+
         return {
           id: user.id,
           name: user.name,
           email: user.email,
           role: user.role as 'ADMIN' | 'QA_LEAD' | 'QA_ENGINEER' | 'MANAGER',
+          permissions,
         }
       },
     }),
@@ -68,6 +90,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id
         token.role = user.role
+        token.permissions = user.permissions
       }
       return token
     },
@@ -75,6 +98,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id
         session.user.role = token.role
+        session.user.permissions = token.permissions ?? []
       }
       return session
     },
