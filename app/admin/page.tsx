@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import Link from 'next/link'
 
 type Role = 'ADMIN' | 'QA_LEAD' | 'QA_ENGINEER' | 'MANAGER'
 type Tab = 'users' | 'squads' | 'audit' | 'settings'
@@ -388,46 +387,26 @@ export default function AdminPage() {
   const visibleNav = navItems.filter(item => !item.adminOnly || isAdmin)
 
   return (
-    <>
-      {/* Sidebar */}
-      <aside className="w-[200px] min-h-screen bg-white border-r border-ink-100 flex flex-col shrink-0">
-        <div className="px-4 py-5 border-b border-ink-100">
-          <div className="flex items-center gap-2">
-            <span className="w-7 h-7 rounded-md bg-accent flex items-center justify-center shrink-0">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1L10 6H15L11 9.5L12.5 15L8 11.5L3.5 15L5 9.5L1 6H6L8 1Z" fill="white" />
-              </svg>
-            </span>
-            <span className="text-sm font-semibold text-ink-900">Admin</span>
-          </div>
-        </div>
+    <div className="flex-1 flex flex-col min-w-0 p-8 bg-[#F4F4F6] dark:bg-ink-900">
 
-        <nav className="flex-1 px-2 py-3 flex flex-col gap-0.5">
-          {visibleNav.map(item => (
-            <button
-              key={item.id}
-              onClick={() => { setTab(item.id); setErrorMsg('') }}
-              className={`w-full text-left flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
-                tab === item.id
-                  ? 'bg-accent text-white'
-                  : 'text-ink-600 hover:bg-ink-50 hover:text-ink-900'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
+      {/* Tab bar */}
+      <div className="flex gap-1 mb-6 bg-white dark:bg-ink-800 border border-ink-200 dark:border-ink-700 rounded-lg p-1 w-fit">
+        {visibleNav.map(item => (
+          <button
+            key={item.id}
+            onClick={() => { setTab(item.id); setErrorMsg('') }}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              tab === item.id
+                ? 'bg-accent text-white'
+                : 'text-ink-600 dark:text-ink-300 hover:bg-ink-50 dark:hover:bg-ink-700'
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
 
-        <div className="px-4 py-3 border-t border-ink-100">
-          <Link href="/" className="text-xs text-ink-400 hover:text-ink-700 transition-colors">
-            ← Back to app
-          </Link>
-        </div>
-      </aside>
-
-      {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0 p-8">
-        {errorMsg && (
+      {errorMsg && (
           <div className="mb-4 max-w-4xl bg-red-50 border border-red-200 text-danger text-xs px-4 py-2 rounded-lg flex items-center justify-between">
             {errorMsg}
             <button onClick={() => setErrorMsg('')} className="ml-4 text-danger/60 hover:text-danger">×</button>
@@ -701,7 +680,6 @@ export default function AdminPage() {
             </div>
           </div>
         )}
-      </div>
 
       {showAddUserModal && (
         <AddUserModal
@@ -718,6 +696,6 @@ export default function AdminPage() {
           onCreated={fetchSquads}
         />
       )}
-    </>
+    </div>
   )
 }
