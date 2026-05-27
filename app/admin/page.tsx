@@ -803,7 +803,7 @@ export default function AdminPage() {
             )}
 
             <p className="text-xs text-ink-400 italic">
-              Note: Users must sign out and back in for permission changes to take effect.
+              Changes to sidebar visibility apply immediately. Direct URL access is enforced within 30 minutes (next token refresh).
             </p>
           </div>
         )}

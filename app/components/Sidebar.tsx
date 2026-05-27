@@ -210,10 +210,25 @@ export function Sidebar() {
   const { data: authSession, status: authStatus } = useAuthSession()
   const authUser = authSession?.user
   const role = authUser?.role as Role | undefined
-  const userPerms: string[] = (authUser as { permissions?: string[] })?.permissions ?? []
+  // JWT permissions — used as fallback while the live fetch is pending
+  const jwtPerms: string[] = (authUser as { permissions?: string[] })?.permissions ?? []
   const roleBadge = role ? ROLE_BADGE_STYLE[role] : null
 
   const isLoggedIn = authStatus === 'authenticated'
+
+  // Fetch live permissions from DB so admin changes are reflected immediately
+  // without requiring the user to re-login.
+  const [livePerms, setLivePerms] = useState<string[] | null>(null)
+  useEffect(() => {
+    if (!isLoggedIn) { setLivePerms(null); return }
+    fetch('/api/my-permissions')
+      .then(r => r.ok ? r.json() : null)
+      .then((perms: string[] | null) => { if (perms) setLivePerms(perms) })
+      .catch(() => { /* keep using JWT perms */ })
+  }, [isLoggedIn])
+
+  // Use live DB permissions if loaded; fall back to JWT value during initial load
+  const userPerms = livePerms ?? jwtPerms
   const isLanding = pathname === '/'
   const hasSession = standardTCs.length > 0 || e2eTCs.length > 0 || apiTCs.length > 0
 
