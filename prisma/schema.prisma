@@ -4,7 +4,7 @@
 // User sync: GET /api/admin/sync-jira to import users from Jira
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
