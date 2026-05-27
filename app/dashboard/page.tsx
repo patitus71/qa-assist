@@ -1,29 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useSession, signOut } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 type Role = 'ADMIN' | 'QA_LEAD' | 'QA_ENGINEER' | 'MANAGER'
-
-const ROLE_LABELS: Record<Role, string> = {
-  ADMIN: 'Admin',
-  QA_LEAD: 'QA Lead',
-  QA_ENGINEER: 'QA Engineer',
-  MANAGER: 'Manager',
-}
-
-const ROLE_BADGE_STYLE: Record<Role, { bg: string; color: string }> = {
-  ADMIN: { bg: '#FEF2F2', color: '#C0392B' },
-  QA_LEAD: { bg: '#EEF2FF', color: '#3730A3' },
-  QA_ENGINEER: { bg: '#EEF4FF', color: '#1A56DB' },
-  MANAGER: { bg: '#ECFDF5', color: '#0B7A51' },
-}
-
-function initials(name: string) {
-  return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()
-}
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
@@ -448,7 +430,7 @@ export default function DashboardPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-[#F4F4F6] flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center">
         <div className="text-sm text-ink-400">Loading…</div>
       </div>
     )
@@ -456,85 +438,21 @@ export default function DashboardPage() {
 
   const user = session?.user
   const role = user?.role as Role | undefined
-  const roleBadge = role ? ROLE_BADGE_STYLE[role] : null
 
   return (
-    <div className="min-h-screen bg-[#F4F4F6] flex">
-      {/* Sidebar */}
-      <aside className="w-[210px] min-h-screen bg-white border-r border-ink-100 flex flex-col shrink-0">
-        <div className="px-4 py-5 border-b border-ink-100">
-          <Link href="/" className="flex items-center gap-2 group">
-            <span className="w-7 h-7 rounded-md bg-accent flex items-center justify-center shrink-0">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1L10 6H15L11 9.5L12.5 15L8 11.5L3.5 15L5 9.5L1 6H6L8 1Z" fill="white" />
-              </svg>
-            </span>
-            <span className="text-sm font-semibold text-ink-900 group-hover:text-accent transition-colors">
-              QA Assist
-            </span>
-          </Link>
+    <div className="flex-1 p-8 bg-[#F4F4F6] dark:bg-ink-900">
+      {role === 'QA_LEAD' && <QALeadDashboard name={user?.name ?? ''} />}
+      {role === 'QA_ENGINEER' && <QAEngineerDashboard name={user?.name ?? ''} />}
+      {role === 'MANAGER' && <ManagerDashboard name={user?.name ?? ''} />}
+      {role === 'ADMIN' && (
+        <div className="flex flex-col gap-4">
+          <h1 className="text-lg font-semibold text-ink-900">Admin Dashboard</h1>
+          <p className="text-sm text-ink-500">
+            Manage users and settings in the{' '}
+            <Link href="/admin" className="text-accent hover:underline">Admin panel</Link>.
+          </p>
         </div>
-
-        <nav className="flex-1 px-2 py-3 flex flex-col gap-0.5">
-          <Link href="/dashboard"
-            className="flex items-center px-3 py-2 rounded-lg text-sm bg-accent text-white">
-            Dashboard
-          </Link>
-          <Link href="/"
-            className="flex items-center px-3 py-2 rounded-lg text-sm text-ink-600 hover:bg-ink-50 hover:text-ink-900 transition-colors">
-            New session
-          </Link>
-          {(role === 'ADMIN' || role === 'MANAGER') && (
-            <Link href="/admin"
-              className="flex items-center px-3 py-2 rounded-lg text-sm text-ink-600 hover:bg-ink-50 hover:text-ink-900 transition-colors">
-              Admin
-            </Link>
-          )}
-        </nav>
-
-        {/* User chip */}
-        <div className="px-3 py-3 border-t border-ink-100 flex items-center gap-2">
-          <span className="w-7 h-7 rounded-full bg-accent text-white flex items-center justify-center text-[11px] font-semibold shrink-0">
-            {user?.name ? initials(user.name) : '?'}
-          </span>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-ink-900 truncate">{user?.name ?? '—'}</p>
-            {role && roleBadge && (
-              <span
-                className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-                style={{ background: roleBadge.bg, color: roleBadge.color }}
-              >
-                {ROLE_LABELS[role]}
-              </span>
-            )}
-          </div>
-          <button
-            onClick={() => signOut({ callbackUrl: '/login' })}
-            title="Sign out"
-            className="text-ink-400 hover:text-ink-700 transition-colors shrink-0"
-          >
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-              <path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M10 11l3-3-3-3M13 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </div>
-      </aside>
-
-      {/* Content */}
-      <div className="flex-1 p-8">
-        {role === 'QA_LEAD' && <QALeadDashboard name={user?.name ?? ''} />}
-        {role === 'QA_ENGINEER' && <QAEngineerDashboard name={user?.name ?? ''} />}
-        {role === 'MANAGER' && <ManagerDashboard name={user?.name ?? ''} />}
-        {role === 'ADMIN' && (
-          <div className="flex flex-col gap-4">
-            <h1 className="text-lg font-semibold text-ink-900">Admin Dashboard</h1>
-            <p className="text-sm text-ink-500">
-              Manage users and settings in the{' '}
-              <Link href="/admin" className="text-accent hover:underline">Admin panel</Link>.
-            </p>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
 }

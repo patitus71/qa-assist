@@ -194,10 +194,13 @@ function IconReport() {
 function IconClock() {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" /><path d="M8 5v3l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
 }
+function IconDashboard() {
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" /><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" /><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" /><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" /></svg>
+}
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
-interface NavItem { label: string; href: string; badge?: number; icon: React.ReactNode; alwaysActive?: boolean }
+interface NavItem { label: string; href: string; badge?: number; icon: React.ReactNode; alwaysActive?: boolean; roles?: Role[] }
 interface NavSection { heading: string; items: NavItem[]; qaEngineerOnly?: boolean }
 
 export function Sidebar() {
@@ -238,6 +241,7 @@ export function Sidebar() {
     {
       heading: 'REPORT',
       items: [
+        { label: 'Dashboard', href: '/dashboard', icon: <IconDashboard />, alwaysActive: true, roles: ['QA_LEAD'] },
         { label: 'Report', href: '/session/report', icon: <IconReport /> },
         { label: 'Timesheet', href: '/session/timesheet', icon: <IconClock /> },
       ],
@@ -269,6 +273,9 @@ export function Sidebar() {
             </p>
             <ul className="flex flex-col gap-0.5">
               {section.items.map(item => {
+                // Hide role-restricted items for non-matching roles
+                if (item.roles && (!role || !item.roles.includes(role))) return null
+
                 if (!isLoggedIn) {
                   return (
                     <li key={item.href}>
