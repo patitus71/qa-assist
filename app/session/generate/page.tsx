@@ -275,7 +275,7 @@ export default function GeneratePage() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-8 max-w-5xl w-full">
+    <div className="p-3 md:p-4 lg:p-8 max-w-5xl w-full">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <div>

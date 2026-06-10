@@ -93,7 +93,7 @@ export default function TimesheetPage() {
   ]
 
   return (
-    <div className="flex-1 p-8 min-w-0 bg-[#F4F4F6] dark:bg-ink-900">
+    <div className="flex-1 p-3 md:p-4 lg:p-8 min-w-0 bg-[#F4F4F6] dark:bg-ink-900">
       <div className="max-w-4xl flex flex-col gap-6">
 
           {/* Header */}
@@ -155,6 +155,7 @@ export default function TimesheetPage() {
             ) : entries.length === 0 ? (
               <div className="p-10 text-center text-sm text-ink-400">No timesheet entries for this period.</div>
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-ink-100 dark:border-ink-700">
@@ -207,6 +208,7 @@ export default function TimesheetPage() {
                   </tr>
                 </tbody>
               </table>
+              </div>
             )}
           </div>
 

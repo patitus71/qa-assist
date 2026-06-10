@@ -198,6 +198,12 @@ function IconClock() {
 function IconDashboard() {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" /><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" /><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" /><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" /></svg>
 }
+function IconMenu() {
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+}
+function IconChevronLeft() {
+  return <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+}
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
@@ -210,14 +216,28 @@ export function Sidebar() {
   const { data: authSession, status: authStatus } = useAuthSession()
   const authUser = authSession?.user
   const role = authUser?.role as Role | undefined
-  // JWT permissions — used as fallback while the live fetch is pending
   const jwtPerms: string[] = (authUser as { permissions?: string[] })?.permissions ?? []
   const roleBadge = role ? ROLE_BADGE_STYLE[role] : null
 
   const isLoggedIn = authStatus === 'authenticated'
 
-  // Fetch live permissions from DB so admin changes are reflected immediately
-  // without requiring the user to re-login.
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [tabletExpanded, setTabletExpanded] = useState(false)
+
+  // Close on navigation
+  useEffect(() => {
+    setMobileOpen(false)
+    setTabletExpanded(false)
+  }, [pathname])
+
+  // Body scroll lock when mobile sidebar is open
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    document.body.style.overflow = mobileOpen ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [mobileOpen])
+
+  // Fetch live permissions from DB
   const [livePerms, setLivePerms] = useState<string[] | null>(null)
   useEffect(() => {
     if (!isLoggedIn) { setLivePerms(null); return }
@@ -227,7 +247,6 @@ export function Sidebar() {
       .catch(() => { /* keep using JWT perms */ })
   }, [isLoggedIn])
 
-  // Use live DB permissions if loaded; fall back to JWT value during initial load
   const userPerms = livePerms ?? jwtPerms
   const isLanding = pathname === '/'
   const hasSession = standardTCs.length > 0 || e2eTCs.length > 0 || apiTCs.length > 0
@@ -265,152 +284,242 @@ export function Sidebar() {
     },
   ]
 
+  // Build the aside className
+  const asideClasses = [
+    // Base: always fixed, full-height, flex column
+    'fixed top-0 left-0 h-screen z-40 flex flex-col overflow-hidden lg:h-auto lg:min-h-screen',
+    'bg-white dark:bg-ink-800 border-r border-ink-100 dark:border-ink-700',
+    'transition-[transform,width] duration-300 ease-in-out',
+    // Mobile: full 210px wide, translate out when closed
+    'w-[210px]',
+    !mobileOpen ? 'max-md:-translate-x-full' : '',
+    // Tablet (768–1023px): always translate-in, width depends on expanded state
+    'md:translate-x-0',
+    tabletExpanded ? 'md:max-lg:w-[210px] md:max-lg:shadow-xl' : 'md:max-lg:w-[48px]',
+    // CSS hook for icon-only mode styles (scoped to tablet via media query in globals.css)
+    !tabletExpanded ? 'sidebar-icon-only' : '',
+    // Desktop (1024px+): static (back in flex flow), full width, no shadow
+    'lg:static lg:w-[210px] lg:shadow-none lg:translate-x-0',
+  ].filter(Boolean).join(' ')
+
   return (
-    <aside className="w-[210px] min-h-screen bg-white dark:bg-ink-800 border-r border-ink-100 dark:border-ink-700 flex flex-col shrink-0">
-      {/* Logo */}
-      <div className="px-4 py-5 border-b border-ink-100 dark:border-ink-700">
-        <Link href="/" className="flex items-center gap-2 group">
-          <span className="w-7 h-7 rounded-md bg-accent flex items-center justify-center shrink-0">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <path d="M8 1L10 6H15L11 9.5L12.5 15L8 11.5L3.5 15L5 9.5L1 6H6L8 1Z" fill="white" />
-            </svg>
-          </span>
-          <span className="text-sm font-semibold text-ink-900 dark:text-ink-100 group-hover:text-accent transition-colors">
-            QA Assist
-          </span>
-        </Link>
-      </div>
-
-      {/* Nav */}
-      <nav className="flex-1 px-2 py-3 flex flex-col gap-4 overflow-y-auto">
-        {sections.map(section => (
-          <div key={section.heading}>
-            <p className="font-mono text-[10px] font-medium tracking-widest text-ink-400 uppercase px-2 mb-1">
-              {section.heading}
-            </p>
-            <ul className="flex flex-col gap-0.5">
-              {section.items.map(item => {
-                // Hide items the user lacks permission for (ADMIN always passes)
-                if (item.permKey && isLoggedIn && role !== 'ADMIN' && !userPerms.includes(item.permKey)) return null
-
-                if (!isLoggedIn) {
-                  return (
-                    <li key={item.href}>
-                      <div style={{ color: '#A8A8B0', pointerEvents: 'none', opacity: 0.5 }}
-                        className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm cursor-not-allowed select-none">
-                        <span className="shrink-0">{item.icon}</span>
-                        <span className="flex-1 whitespace-nowrap">{item.label}</span>
-                      </div>
-                    </li>
-                  )
-                }
-
-                const active = pathname === item.href || pathname.startsWith(item.href + '/')
-                const disabled = isLanding && !hasSession && !item.alwaysActive
-
-                if (disabled) {
-                  return (
-                    <li key={item.href}>
-                      <div title="Start a session first" style={{ color: '#A8A8B0', pointerEvents: 'none' }}
-                        className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm cursor-not-allowed select-none">
-                        <span className="shrink-0 opacity-50">{item.icon}</span>
-                        <span className="flex-1 whitespace-nowrap">{item.label}</span>
-                      </div>
-                    </li>
-                  )
-                }
-
-                if (isLanding && item.href === '/session/generate') {
-                  return (
-                    <li key={item.href}>
-                      <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                        className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-ink-600 dark:text-ink-300 hover:bg-ink-50 dark:hover:bg-ink-700 hover:text-ink-900 dark:hover:text-ink-100">
-                        <span className="shrink-0 opacity-80">{item.icon}</span>
-                        <span className="flex-1 whitespace-nowrap text-left">{item.label}</span>
-                      </button>
-                    </li>
-                  )
-                }
-
-                return (
-                  <li key={item.href}>
-                    <Link href={item.href}
-                      className={`flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors ${
-                        active
-                          ? 'bg-accent text-white'
-                          : 'text-ink-600 dark:text-ink-300 hover:bg-ink-50 dark:hover:bg-ink-700 hover:text-ink-900 dark:hover:text-ink-100'
-                      }`}>
-                      <span className="shrink-0 opacity-80">{item.icon}</span>
-                      <span className="flex-1 whitespace-nowrap">{item.label}</span>
-                      {item.badge !== undefined && (
-                        <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-full leading-none ${
-                          active ? 'bg-white/20 text-white' : 'bg-ink-100 dark:bg-ink-700 text-ink-500 dark:text-ink-400'
-                        }`}>{item.badge}</span>
-                      )}
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        ))}
-      </nav>
-
-      {/* Timer widget — QA_ENGINEER only */}
-      {isLoggedIn && role === 'QA_ENGINEER' && <TimerWidget />}
-
-      {/* Admin link — ADMIN and MANAGER */}
-      {isLoggedIn && (role === 'ADMIN' || role === 'MANAGER') && (
-        <div className="px-2 pb-1">
-          <Link href="/admin"
-            className="flex items-center px-2 py-2 rounded-lg text-sm text-ink-600 hover:bg-ink-50 hover:text-ink-900 transition-colors gap-2">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <circle cx="8" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" />
-              <path d="M2 14c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-            Admin
-          </Link>
-        </div>
+    <>
+      {/* Mobile hamburger — fixed, shown only on mobile when sidebar is closed */}
+      {!mobileOpen && (
+        <button
+          className="fixed top-3 left-3 z-50 md:hidden bg-white dark:bg-ink-800 border border-ink-200 dark:border-ink-700 rounded-lg p-2 shadow-sm text-ink-600 hover:text-ink-900 dark:text-ink-400 dark:hover:text-ink-100 transition-colors"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open menu"
+        >
+          <IconMenu />
+        </button>
       )}
 
-      {/* Footer */}
-      <div className="px-3 py-3 border-t border-ink-100 dark:border-ink-700">
-        {isLoggedIn ? (
-          <>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-7 h-7 rounded-full bg-accent text-white flex items-center justify-center text-[11px] font-semibold shrink-0">
-                {authUser?.name ? initials(authUser.name) : '?'}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-ink-900 dark:text-ink-100 truncate">{authUser?.name ?? '—'}</p>
-                {role && roleBadge && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-                    style={{ background: roleBadge.bg, color: roleBadge.color }}>
-                    {ROLE_LABELS[role]}
-                  </span>
-                )}
-              </div>
-              <button onClick={() => signOut({ callbackUrl: '/login' })} title="Sign out"
-                className="text-ink-400 hover:text-danger transition-colors shrink-0">
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-                  <path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M10 11l3-3-3-3M13 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-30 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Tablet expanded backdrop */}
+      {tabletExpanded && (
+        <div
+          className="fixed inset-0 bg-black/40 z-30 hidden md:block lg:hidden"
+          onClick={() => setTabletExpanded(false)}
+        />
+      )}
+
+      <aside className={asideClasses}>
+        {/* Logo / header */}
+        <div className="border-b border-ink-100 dark:border-ink-700 shrink-0">
+          {/* Icon-only expand button — shown via CSS in tablet icon-only mode */}
+          <div className="sidebar-expand-btn px-0 py-3">
+            <button
+              onClick={() => setTabletExpanded(true)}
+              className="p-2 rounded-lg hover:bg-ink-50 dark:hover:bg-ink-700 text-ink-500 hover:text-ink-700 dark:hover:text-ink-300 transition-colors"
+              aria-label="Expand sidebar"
+            >
+              <IconMenu />
+            </button>
+          </div>
+          {/* Full logo — visible when sidebar is full width */}
+          <div className="sidebar-full-logo px-4 py-5 flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-2 group flex-1 min-w-0">
+              <span className="w-7 h-7 rounded-md bg-accent flex items-center justify-center shrink-0">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 1L10 6H15L11 9.5L12.5 15L8 11.5L3.5 15L5 9.5L1 6H6L8 1Z" fill="white" />
                 </svg>
-              </button>
+              </span>
+              <span className="text-sm font-semibold text-ink-900 dark:text-ink-100 group-hover:text-accent transition-colors truncate">
+                QA Assist
+              </span>
+            </Link>
+            {/* Collapse button — only tablet when expanded */}
+            <button
+              className="hidden md:flex lg:hidden text-ink-400 hover:text-ink-600 dark:hover:text-ink-300 transition-colors p-1 rounded hover:bg-ink-50 dark:hover:bg-ink-700"
+              onClick={() => setTabletExpanded(false)}
+              aria-label="Collapse sidebar"
+            >
+              <IconChevronLeft />
+            </button>
+          </div>
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 px-2 py-3 flex flex-col gap-4 overflow-y-auto">
+          {sections.map(section => (
+            <div key={section.heading}>
+              <p className="nav-section-heading font-mono text-[10px] font-medium tracking-widest text-ink-400 uppercase px-2 mb-1">
+                {section.heading}
+              </p>
+              <ul className="flex flex-col gap-0.5">
+                {section.items.map(item => {
+                  if (item.permKey && isLoggedIn && role !== 'ADMIN' && !userPerms.includes(item.permKey)) return null
+
+                  if (!isLoggedIn) {
+                    return (
+                      <li key={item.href}>
+                        <div
+                          style={{ color: '#A8A8B0', pointerEvents: 'none', opacity: 0.5 }}
+                          className="nav-item-link flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm cursor-not-allowed select-none"
+                          title={item.label}
+                        >
+                          <span className="shrink-0">{item.icon}</span>
+                          <span className="nav-item-label flex-1 whitespace-nowrap">{item.label}</span>
+                        </div>
+                      </li>
+                    )
+                  }
+
+                  const active = pathname === item.href || pathname.startsWith(item.href + '/')
+                  const disabled = isLanding && !hasSession && !item.alwaysActive
+
+                  if (disabled) {
+                    return (
+                      <li key={item.href}>
+                        <div
+                          title={item.label}
+                          style={{ color: '#A8A8B0', pointerEvents: 'none' }}
+                          className="nav-item-link flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm cursor-not-allowed select-none"
+                        >
+                          <span className="shrink-0 opacity-50">{item.icon}</span>
+                          <span className="nav-item-label flex-1 whitespace-nowrap">{item.label}</span>
+                        </div>
+                      </li>
+                    )
+                  }
+
+                  if (isLanding && item.href === '/session/generate') {
+                    return (
+                      <li key={item.href}>
+                        <button
+                          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                          title={item.label}
+                          className="nav-item-link w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-ink-600 dark:text-ink-300 hover:bg-ink-50 dark:hover:bg-ink-700 hover:text-ink-900 dark:hover:text-ink-100"
+                        >
+                          <span className="shrink-0 opacity-80">{item.icon}</span>
+                          <span className="nav-item-label flex-1 whitespace-nowrap text-left">{item.label}</span>
+                        </button>
+                      </li>
+                    )
+                  }
+
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        title={item.label}
+                        className={`nav-item-link flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors ${
+                          active
+                            ? 'bg-accent text-white'
+                            : 'text-ink-600 dark:text-ink-300 hover:bg-ink-50 dark:hover:bg-ink-700 hover:text-ink-900 dark:hover:text-ink-100'
+                        }`}
+                      >
+                        <span className="shrink-0 opacity-80">{item.icon}</span>
+                        <span className="nav-item-label flex-1 whitespace-nowrap">{item.label}</span>
+                        {item.badge !== undefined && (
+                          <span className={`nav-item-badge font-mono text-[10px] px-1.5 py-0.5 rounded-full leading-none ${
+                            active ? 'bg-white/20 text-white' : 'bg-ink-100 dark:bg-ink-700 text-ink-500 dark:text-ink-400'
+                          }`}>{item.badge}</span>
+                        )}
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
             </div>
-            <div className="flex items-center justify-between">
-              <Link href="/" className="text-xs text-ink-400 hover:text-ink-600 transition-colors">
-                ← New session
-              </Link>
-              <ThemeToggle />
-            </div>
-          </>
-        ) : (
-          <div className="flex items-center justify-between gap-2">
-            <Link href="/login" className="flex-1 btn-primary text-xs py-2 text-center">Sign in</Link>
-            <ThemeToggle />
+          ))}
+        </nav>
+
+        {/* Timer widget — QA_ENGINEER only */}
+        {isLoggedIn && role === 'QA_ENGINEER' && (
+          <div className="nav-full-section">
+            <TimerWidget />
           </div>
         )}
-      </div>
-    </aside>
+
+        {/* Admin link — ADMIN and MANAGER */}
+        {isLoggedIn && (role === 'ADMIN' || role === 'MANAGER') && (
+          <div className="nav-full-section px-2 pb-1">
+            <Link
+              href="/admin"
+              className="flex items-center px-2 py-2 rounded-lg text-sm text-ink-600 hover:bg-ink-50 hover:text-ink-900 transition-colors gap-2"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M2 14c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              Admin
+            </Link>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="px-3 py-3 border-t border-ink-100 dark:border-ink-700 shrink-0">
+          {isLoggedIn ? (
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-7 h-7 rounded-full bg-accent text-white flex items-center justify-center text-[11px] font-semibold shrink-0">
+                  {authUser?.name ? initials(authUser.name) : '?'}
+                </span>
+                <div className="nav-item-label flex-1 min-w-0">
+                  <p className="text-xs font-medium text-ink-900 dark:text-ink-100 truncate">{authUser?.name ?? '—'}</p>
+                  {role && roleBadge && (
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                      style={{ background: roleBadge.bg, color: roleBadge.color }}
+                    >
+                      {ROLE_LABELS[role]}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => signOut({ callbackUrl: '/login' })}
+                  title="Sign out"
+                  className="text-ink-400 hover:text-danger transition-colors shrink-0"
+                >
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                    <path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M10 11l3-3-3-3M13 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+              <div className="nav-full-section flex items-center justify-between">
+                <Link href="/" className="text-xs text-ink-400 hover:text-ink-600 transition-colors">
+                  ← New session
+                </Link>
+                <ThemeToggle />
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <Link href="/login" className="flex-1 btn-primary text-xs py-2 text-center">Sign in</Link>
+              <ThemeToggle />
+            </div>
+          )}
+        </div>
+      </aside>
+    </>
   )
 }

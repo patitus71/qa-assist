@@ -42,7 +42,7 @@ export default function APIRunPage() {
 
   if (apiTCs.length === 0) {
     return (
-      <div className="p-8 max-w-3xl">
+      <div className="p-3 md:p-4 lg:p-8 max-w-3xl">
         <h1 className="text-2xl font-bold text-ink-900 mb-4">API Test Run</h1>
         <div className="card p-10 border-dashed text-center text-ink-400">
           <p className="text-sm mb-3">No API test cases to run.</p>
@@ -123,14 +123,14 @@ export default function APIRunPage() {
   const someRunning = running.size > 0
 
   return (
-    <div className="p-8 max-w-5xl w-full">
+    <div className="p-3 md:p-4 lg:p-8 max-w-5xl w-full">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-ink-900">API Test Run</h1>
           {jiraKey && <span className="tc-id mt-1 inline-block">{jiraKey}</span>}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           {cycles.length > 0 && (
             <select value={cycleId} onChange={e => setCycleId(e.target.value)}
               className="text-sm border border-ink-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none">
@@ -176,7 +176,7 @@ export default function APIRunPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
         {[
           { label: 'Pass', count: stats.pass, color: 'text-success' },
           { label: 'Fail', count: stats.fail, color: 'text-danger' },

@@ -158,3 +158,19 @@ body {
 .dark .bg-ink-800 { background-color: #1A1A1C !important; }
 .dark .bg-ink-700 { background-color: #2E2E31 !important; }
 .dark .border-ink-700 { border-color: #2E2E31 !important; }
+
+/* ── Sidebar responsive ──────────────────────────────────────────────────── */
+
+/* Icon-only expand button: hidden by default, shown in tablet icon-only mode */
+.sidebar-expand-btn { display: none; }
+
+/* Tablet icon-only mode (768px–1023px, sidebar collapsed to 48px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .sidebar-icon-only .sidebar-full-logo  { display: none; }
+  .sidebar-icon-only .sidebar-expand-btn { display: flex; justify-content: center; }
+  .sidebar-icon-only .nav-section-heading { display: none; }
+  .sidebar-icon-only .nav-item-label  { display: none; }
+  .sidebar-icon-only .nav-item-badge  { display: none; }
+  .sidebar-icon-only .nav-full-section { display: none; }
+  .sidebar-icon-only .nav-item-link   { justify-content: center; }
+}

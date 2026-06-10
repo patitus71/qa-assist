@@ -345,7 +345,7 @@ export function PushJiraModal({ tcs, onClose }: Props) {
 
     return (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-ink-800 rounded-card shadow-2xl w-full max-w-lg">
+        <div className="bg-white dark:bg-ink-800 rounded-card shadow-2xl w-[90vw] md:w-full max-w-lg">
           <div className="flex items-center justify-between px-6 py-4 border-b border-ink-100">
             <h2 className="text-sm font-semibold text-ink-900">Push Results</h2>
             <button onClick={onClose} className="text-ink-400 hover:text-ink-700 p-1 rounded transition-colors">
@@ -397,7 +397,7 @@ export function PushJiraModal({ tcs, onClose }: Props) {
       className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
       onClick={e => e.target === e.currentTarget && stage !== 'pushing' && onClose()}
     >
-      <div className="bg-white dark:bg-ink-800 rounded-card shadow-2xl w-full max-w-4xl flex flex-col max-h-[92vh]">
+      <div className="bg-white dark:bg-ink-800 rounded-card shadow-2xl w-[90vw] md:w-full max-w-4xl flex flex-col max-h-[92vh]">
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-ink-100 shrink-0">

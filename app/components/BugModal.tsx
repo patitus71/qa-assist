@@ -122,7 +122,7 @@ export function BugModal({ tcId, tcTitle, draft: initialDraft, evidence, jiraKey
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-card shadow-xl w-full max-w-2xl max-h-[92vh] flex flex-col">
+      <div className="bg-white rounded-card shadow-xl w-[90vw] md:w-full max-w-2xl max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100 shrink-0">
           <div>
@@ -143,7 +143,7 @@ export function BugModal({ tcId, tcTitle, draft: initialDraft, evidence, jiraKey
           </div>
 
           {/* Steps / Expected / Actual grid */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Steps to Reproduce</label>
               <textarea value={draft.steps} onChange={e => setDraft(d => ({ ...d, steps: e.target.value }))} rows={4} className={`${inputCls} resize-none`} />
@@ -160,7 +160,7 @@ export function BugModal({ tcId, tcTitle, draft: initialDraft, evidence, jiraKey
           </div>
 
           {/* Priority + Project row */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Priority</label>
               <select value={draft.priority} onChange={e => setDraft(d => ({ ...d, priority: e.target.value as BugDraft['priority'] }))}

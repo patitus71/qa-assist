@@ -395,6 +395,7 @@ export function APITCTable({ tcs, onChange }: Props) {
       )}
 
       <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-ink-50 border-b border-ink-100">
             <tr>
@@ -491,6 +492,7 @@ export function APITCTable({ tcs, onChange }: Props) {
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

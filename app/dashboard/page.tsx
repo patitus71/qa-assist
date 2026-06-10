@@ -265,6 +265,7 @@ function SquadTimesheetPanel({ isManager }: { isManager: boolean }) {
       ) : members.length === 0 ? (
         <div className="p-6 text-center text-sm text-ink-400">No engineers with time logged.</div>
       ) : (
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-ink-100">
@@ -314,6 +315,7 @@ function SquadTimesheetPanel({ isManager }: { isManager: boolean }) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   )
@@ -329,7 +331,7 @@ function QALeadDashboard({ name }: { name: string }) {
         <p className="text-xs text-ink-500 mt-0.5">Team overview — QA Lead</p>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Pass" value={0} />
         <StatCard label="Fail" value={0} />
         <StatCard label="Pending" value={0} />
@@ -369,7 +371,7 @@ function QAEngineerDashboard({ name }: { name: string }) {
         <p className="text-xs text-ink-500 mt-0.5">Your assignments</p>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Assigned" value={0} />
         <StatCard label="Done" value={0} />
         <StatCard label="In Progress" value={0} />
@@ -402,7 +404,7 @@ function ManagerDashboard({ name }: { name: string }) {
         <p className="text-xs text-ink-500 mt-0.5">Sprint overview — all squads</p>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Total TC" value={0} />
         <StatCard label="Pass" value={0} />
         <StatCard label="Bugs Found" value={0} />
@@ -440,7 +442,7 @@ export default function DashboardPage() {
   const role = user?.role as Role | undefined
 
   return (
-    <div className="flex-1 p-8 bg-[#F4F4F6] dark:bg-ink-900">
+    <div className="flex-1 p-3 md:p-4 lg:p-6 xl:p-8 bg-[#F4F4F6] dark:bg-ink-900">
       {role === 'QA_LEAD' && <QALeadDashboard name={user?.name ?? ''} />}
       {role === 'QA_ENGINEER' && <QAEngineerDashboard name={user?.name ?? ''} />}
       {role === 'MANAGER' && <ManagerDashboard name={user?.name ?? ''} />}

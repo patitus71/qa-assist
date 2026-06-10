@@ -278,7 +278,7 @@ export default function ImportPage() {
   }
 
   return (
-    <main className="flex-1 p-8">
+    <main className="flex-1 p-3 md:p-4 lg:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
 
         {/* Header */}

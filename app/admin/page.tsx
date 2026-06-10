@@ -429,10 +429,10 @@ export default function AdminPage() {
   const visibleNav = navItems.filter(item => !item.adminOnly || isAdmin)
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 p-8 bg-[#F4F4F6] dark:bg-ink-900">
+    <div className="flex-1 flex flex-col min-w-0 p-3 md:p-4 lg:p-6 xl:p-8 bg-[#F4F4F6] dark:bg-ink-900">
 
       {/* Tab bar */}
-      <div className="flex gap-1 mb-6 bg-white dark:bg-ink-800 border border-ink-200 dark:border-ink-700 rounded-lg p-1 w-fit">
+      <div className="flex gap-1 mb-6 bg-white dark:bg-ink-800 border border-ink-200 dark:border-ink-700 rounded-lg p-1 w-fit max-w-full overflow-x-auto">
         {visibleNav.map(item => (
           <button
             key={item.id}
@@ -472,6 +472,7 @@ export default function AdminPage() {
               {loadingUsers ? (
                 <div className="p-8 text-center text-sm text-ink-400">Loading…</div>
               ) : (
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-ink-100">
@@ -568,6 +569,7 @@ export default function AdminPage() {
                     })}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
 
@@ -596,6 +598,7 @@ export default function AdminPage() {
               ) : squads.length === 0 ? (
                 <div className="p-8 text-center text-sm text-ink-400">No squads yet. Add your first squad.</div>
               ) : (
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-ink-100">
@@ -670,6 +673,7 @@ export default function AdminPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           </div>
@@ -686,6 +690,7 @@ export default function AdminPage() {
               {auditLogs.length === 0 ? (
                 <div className="p-8 text-center text-sm text-ink-400">No audit log entries yet.</div>
               ) : (
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-ink-100">
@@ -708,6 +713,7 @@ export default function AdminPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           </div>
@@ -727,6 +733,7 @@ export default function AdminPage() {
               <div className="p-8 text-center text-sm text-ink-400">Loading…</div>
             ) : (
               <div className="bg-white rounded-[12px] border border-ink-200 overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-ink-100">
@@ -799,6 +806,7 @@ export default function AdminPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
 

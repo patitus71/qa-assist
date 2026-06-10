@@ -108,7 +108,7 @@ export default function ExportPage() {
   }
 
   return (
-    <div className="p-8 max-w-5xl w-full">
+    <div className="p-3 md:p-4 lg:p-8 max-w-5xl w-full">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-ink-900">Export / Push</h1>
@@ -116,7 +116,7 @@ export default function ExportPage() {
       </div>
 
       {/* 3-column grid */}
-      <div className="grid grid-cols-3 gap-5 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
         <ExportColumn
           title="Standard"
           badge={standardTCs.length}

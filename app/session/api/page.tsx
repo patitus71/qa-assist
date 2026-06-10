@@ -47,7 +47,7 @@ export default function ApiPage() {
   )
 
   return (
-    <div className="p-8 max-w-5xl w-full">
+    <div className="p-3 md:p-4 lg:p-8 max-w-5xl w-full">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-ink-900">API Test Cases</h1>

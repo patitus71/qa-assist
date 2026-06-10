@@ -465,7 +465,7 @@ export default function LandingPage() {
       )}
 
       {/* Header */}
-      <div className="px-8 pt-12 pb-8 text-center">
+      <div className="px-4 md:px-8 pt-4 md:pt-12 pb-8 text-center">
         <div className="inline-flex items-center gap-2 mb-4">
           <span className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -481,7 +481,7 @@ export default function LandingPage() {
       </div>
 
       {/* Three cards */}
-      <div className="flex-1 px-8 pb-12">
+      <div className="flex-1 px-3 md:px-8 pb-12">
         <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
 
           {/* Card A: Jira */}

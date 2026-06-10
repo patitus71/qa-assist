@@ -10,7 +10,7 @@ export default function E2EPage() {
   const { e2eTCs, setE2eTCs } = useSession()
 
   return (
-    <div className="p-8 max-w-5xl w-full">
+    <div className="p-3 md:p-4 lg:p-8 max-w-5xl w-full">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-ink-900">E2E Test Cases</h1>
