@@ -565,26 +565,28 @@ export default function GeneratePage() {
       </div>
 
       {/* ── TCM Upload section ─────────────────────────────────────────────── */}
-      <div className="card p-4 mb-5">
+      <div className={`card mb-5 overflow-hidden transition-all ${tcmData ? 'border-accent/40' : ''}`}>
         <button
           onClick={() => setTcmExpanded(s => !s)}
-          className="w-full flex items-center gap-2 text-xs font-medium text-ink-500 hover:text-ink-700 transition-colors"
+          className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${tcmData ? 'bg-accent/5 text-accent hover:bg-accent/10' : 'text-ink-600 hover:bg-ink-50'}`}
         >
-          <span
-            className={`w-5 h-5 flex items-center justify-center border border-ink-200 rounded text-ink-400 transition-transform text-base leading-none select-none ${tcmExpanded ? 'rotate-45' : ''}`}
-          >+</span>
-          <span>Upload existing TCM <span className="text-ink-400 font-normal">(optional)</span></span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className={tcmData ? 'text-accent' : 'text-ink-400'}>
+            <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M8 10h8M8 14h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <path d="M8 6h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          <span>Import TCM <span className="font-normal text-ink-400 text-xs">(optional — ให้ AI gen เฉพาะ TC ที่ยังขาด)</span></span>
           {tcmData && (
             <span className="ml-2 inline-flex items-center gap-1 font-mono text-[10px] bg-success/10 text-success px-2 py-0.5 rounded-full border border-success/20">
               <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1.5 4l2 2 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
               TCM loaded
             </span>
           )}
-          <span className="ml-auto text-ink-300 text-xs font-normal">Help AI generate better TCs by providing your TCM</span>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className={`ml-auto text-ink-400 transition-transform ${tcmExpanded ? 'rotate-180' : ''}`}>
+            <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
-
-        {tcmExpanded && (
-          <div className="mt-4">
+        <div className={`transition-all ${tcmExpanded ? 'px-4 pb-4 pt-3' : 'h-0 overflow-hidden'}`}>
             {!tcmData ? (
               // Upload zone
               <>
@@ -683,7 +685,6 @@ export default function GeneratePage() {
               </div>
             )}
           </div>
-        )}
       </div>
 
       {/* Generate cards grid */}
