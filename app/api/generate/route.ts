@@ -14,7 +14,13 @@ const InputSchema = z.object({
   requirement: z.string().min(1).max(10000),
   images: z.array(z.string().max(2_500_000)).max(5).optional().default([]),
   swaggerContext: z.string().max(5000).optional(),
+  existingTCM: z.object({
+    groups: z.array(z.object({ name: z.string(), values: z.array(z.string()) })).max(20),
+    existingTCs: z.array(z.object({ title: z.string() })).max(60),
+  }).optional(),
 })
+
+type ExistingTCM = { groups: { name: string; values: string[] }[]; existingTCs: { title: string }[] }
 
 const SYSTEM: Record<'standard' | 'e2e' | 'api', string> = {
   standard: `You are a QA engineer for a banking system.
@@ -56,11 +62,28 @@ function extractJSON(text: string): unknown[] {
 function buildContent(
   requirement: string,
   images: string[],
-  swaggerContext?: string
+  swaggerContext?: string,
+  existingTCM?: ExistingTCM
 ): Anthropic.MessageParam['content'] {
-  const userText = swaggerContext
+  let userText = swaggerContext
     ? `${requirement}\n\n## API Spec Reference\n\`\`\`json\n${swaggerContext}\n\`\`\``
     : requirement
+
+  if (existingTCM && existingTCM.groups.length > 0) {
+    const groupsSummary = existingTCM.groups
+      .map(g => `- ${g.name}: ${g.values.join(', ')}`)
+      .join('\n')
+    const existingList = existingTCM.existingTCs
+      .slice(0, 30)
+      .map((tc, i) => `${i + 1}. ${tc.title}`)
+      .join('\n')
+    userText +=
+      `\n\n## Existing TCM Coverage\n` +
+      `Test parameter groups:\n${groupsSummary}\n\n` +
+      `Already covered scenarios (DO NOT duplicate):\n${existingList}\n\n` +
+      `IMPORTANT: Generate ONLY test cases NOT yet covered above. ` +
+      `Focus on missing value combinations, edge cases, and negative scenarios absent from the TCM.`
+  }
 
   const blocks: Anthropic.MessageParam['content'] = [{ type: 'text', text: userText }]
 
@@ -79,13 +102,14 @@ async function callAI(
   type: 'standard' | 'e2e' | 'api',
   requirement: string,
   images: string[],
-  swaggerContext?: string
+  swaggerContext?: string,
+  existingTCM?: ExistingTCM
 ): Promise<unknown[]> {
   const msg = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 4096,
     system: [{ type: 'text', text: SYSTEM[type], cache_control: { type: 'ephemeral' } }],
-    messages: [{ role: 'user', content: buildContent(requirement, images, swaggerContext) }],
+    messages: [{ role: 'user', content: buildContent(requirement, images, swaggerContext, existingTCM) }],
   })
   const text = msg.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text ?? '[]'
   return extractJSON(text)
@@ -193,7 +217,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { type, requirement, images, swaggerContext } = parsed.data
+  const { type, requirement, images, swaggerContext, existingTCM } = parsed.data
 
   const check = classify(requirement)
   if (!check.safe) {
@@ -203,9 +227,9 @@ export async function POST(req: NextRequest) {
   try {
     if (type === 'all') {
       const [std, e2e, api] = await Promise.allSettled([
-        callAI('standard', requirement, images, swaggerContext),
-        callAI('e2e', requirement, images, swaggerContext),
-        callAI('api', requirement, images, swaggerContext),
+        callAI('standard', requirement, images, swaggerContext, existingTCM),
+        callAI('e2e', requirement, images, swaggerContext, existingTCM),
+        callAI('api', requirement, images, swaggerContext, existingTCM),
       ])
       return NextResponse.json({
         standard: std.status === 'fulfilled' ? std.value.map(toStandard) : [],
@@ -214,7 +238,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const raw = await callAI(type, requirement, images, swaggerContext)
+    const raw = await callAI(type, requirement, images, swaggerContext, existingTCM)
     if (type === 'standard') return NextResponse.json({ standard: raw.map(toStandard) })
     if (type === 'e2e') return NextResponse.json({ e2e: raw.map(toE2E) })
     return NextResponse.json({ api: raw.map(toAPI) })

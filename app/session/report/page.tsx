@@ -55,90 +55,31 @@ function SectionBar({ label, pass, total }: { label: string; pass: number; total
   )
 }
 
-// ── Report PDF export (dynamic import) ────────────────────────────────────────
+// ── Report PDF export ─────────────────────────────────────────────────────────
 
 async function exportReportPdf(
   report: TestReport,
   sectionStats: { standard: { pass: number; total: number }; e2e: { pass: number; total: number }; api: { pass: number; total: number } },
   jiraKey?: string
 ) {
-  const { default: jsPDF } = await import('jspdf')
-  const { default: autoTable } = await import('jspdf-autotable')
+  const { registerPdfFonts } = await import('@/lib/pdf-fonts')
+  await registerPdfFonts()
 
-  const doc = new jsPDF()
-  const pageW = doc.internal.pageSize.getWidth()
-  const today = new Date().toLocaleDateString('en-GB')
+  const { pdf }          = await import('@react-pdf/renderer')
+  const { ReportPDF }    = await import('@/components/pdf/ReportPDF')
+  const { createElement } = await import('react')
 
-  // Header
-  doc.setFontSize(18)
-  doc.setTextColor(13, 13, 14)
-  doc.text('Test Execution Report', 14, 20)
+  const blob = await pdf(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (createElement as any)(ReportPDF, { report, sectionStats, jiraKey })
+  ).toBlob()
 
-  doc.setFontSize(9)
-  doc.setTextColor(107, 107, 117)
-  doc.text(`Generated: ${today}`, 14, 28)
-  if (jiraKey) doc.text(`Ticket: ${jiraKey}`, 14, 34)
-
-  // Pass rate summary
-  doc.setFontSize(11)
-  doc.setTextColor(13, 13, 14)
-  doc.text(`Pass Rate: ${report.passRate}%  |  Total: ${report.totalTC}  |  Pass: ${report.passed}  |  Fail: ${report.failed}  |  Blocked: ${report.blocked}`, 14, 44)
-
-  // Summary text
-  doc.setFontSize(9)
-  doc.setTextColor(46, 46, 49)
-  const summaryLines = doc.splitTextToSize(report.summary, pageW - 28) as string[]
-  doc.text(summaryLines, 14, 54)
-
-  // Section stats table
-  const sectionY = 54 + summaryLines.length * 5 + 8
-  autoTable(doc, {
-    startY: sectionY,
-    head: [['Section', 'Passed', 'Failed', 'Total', 'Pass Rate']],
-    body: [
-      ['Standard', String(sectionStats.standard.pass), String(sectionStats.standard.total - sectionStats.standard.pass), String(sectionStats.standard.total), `${sectionStats.standard.total > 0 ? Math.round((sectionStats.standard.pass / sectionStats.standard.total) * 100) : 0}%`],
-      ['E2E', String(sectionStats.e2e.pass), String(sectionStats.e2e.total - sectionStats.e2e.pass), String(sectionStats.e2e.total), `${sectionStats.e2e.total > 0 ? Math.round((sectionStats.e2e.pass / sectionStats.e2e.total) * 100) : 0}%`],
-      ['API', String(sectionStats.api.pass), String(sectionStats.api.total - sectionStats.api.pass), String(sectionStats.api.total), `${sectionStats.api.total > 0 ? Math.round((sectionStats.api.pass / sectionStats.api.total) * 100) : 0}%`],
-    ],
-    headStyles: { fillColor: [26, 86, 219], textColor: [255, 255, 255], fontSize: 8 },
-    bodyStyles: { fontSize: 8 },
-    margin: { left: 14, right: 14 },
-  })
-
-  // Failed TCs
-  if (report.failedTCs.length > 0) {
-    const failY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable?.finalY ?? sectionY + 40
-    autoTable(doc, {
-      startY: failY + 8,
-      head: [['TC ID', 'Issue']],
-      body: report.failedTCs.map(t => [t.id, t.issue]),
-      headStyles: { fillColor: [192, 57, 43], textColor: [255, 255, 255], fontSize: 8 },
-      bodyStyles: { fontSize: 8 },
-      margin: { left: 14, right: 14 },
-    })
-  }
-
-  // Recommendations
-  const recY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable?.finalY ?? 180
-  doc.setFontSize(10)
-  doc.setTextColor(13, 13, 14)
-  doc.text('Recommendations', 14, recY + 10)
-  doc.setFontSize(8.5)
-  doc.setTextColor(46, 46, 49)
-  const recLines = doc.splitTextToSize(report.recommendation, pageW - 28) as string[]
-  doc.text(recLines, 14, recY + 18)
-
-  // Page numbers
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pageCount = (doc.internal as any).getNumberOfPages() as number
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i)
-    doc.setFontSize(7)
-    doc.setTextColor(142, 142, 154)
-    doc.text(`Page ${i} of ${pageCount}`, pageW / 2, doc.internal.pageSize.getHeight() - 8, { align: 'center' })
-  }
-
-  doc.save('qa-execution-report.pdf')
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'qa-execution-report.pdf'
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 // ── Report Excel export ───────────────────────────────────────────────────────
