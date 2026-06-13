@@ -172,7 +172,7 @@ export default function StandardPage() {
 
   if (standardTCs.length === 0) {
     return (
-      <div className="p-3 md:p-4 lg:p-8 max-w-5xl w-full">
+      <div className="p-3 md:p-4 lg:p-8 w-full">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-ink-900">Standard Test Cases</h1>
           {importButton}
@@ -186,7 +186,7 @@ export default function StandardPage() {
   }
 
   return (
-    <div className="p-3 md:p-4 lg:p-8 max-w-5xl w-full">
+    <div className="p-3 md:p-4 lg:p-8 w-full">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-ink-900">Standard Test Cases</h1>

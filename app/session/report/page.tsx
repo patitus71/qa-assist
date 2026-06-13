@@ -209,7 +209,7 @@ Recommendations: ${report.recommendation}`
 
   if (allTCs.length === 0) {
     return (
-      <div className="p-3 md:p-4 lg:p-8 max-w-3xl">
+      <div className="p-3 md:p-4 lg:p-8 w-full">
         <h1 className="text-2xl font-bold text-ink-900 mb-4">Report</h1>
         <div className="card p-10 border-dashed text-center text-ink-400">
           <p className="text-sm">No test cases to report on. Run some tests first.</p>
@@ -219,7 +219,7 @@ Recommendations: ${report.recommendation}`
   }
 
   return (
-    <div className="p-3 md:p-4 lg:p-8 max-w-4xl w-full">
+    <div className="p-3 md:p-4 lg:p-8 w-full">
       {/* Auto-save banner */}
       {showSaveBanner && (
         <div className="mb-5 bg-amber-50 border border-amber-200 rounded-card px-4 py-3 flex items-center justify-between">

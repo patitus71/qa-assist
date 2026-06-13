@@ -457,7 +457,7 @@ export default function AdminPage() {
 
         {/* ── Users Tab ─────────────────────────────────────────────────── */}
         {tab === 'users' && (
-          <div className="flex flex-col gap-6 max-w-5xl">
+          <div className="flex flex-col gap-6 w-full">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-lg font-semibold text-ink-900">Users</h1>
@@ -581,7 +581,7 @@ export default function AdminPage() {
 
         {/* ── Squads Tab ────────────────────────────────────────────────── */}
         {tab === 'squads' && (
-          <div className="flex flex-col gap-6 max-w-2xl">
+          <div className="flex flex-col gap-6 w-full">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-lg font-semibold text-ink-900">Squads</h1>
@@ -681,7 +681,7 @@ export default function AdminPage() {
 
         {/* ── Audit Tab ─────────────────────────────────────────────────── */}
         {tab === 'audit' && (
-          <div className="flex flex-col gap-4 max-w-4xl">
+          <div className="flex flex-col gap-4 w-full">
             <div>
               <h1 className="text-lg font-semibold text-ink-900">Audit log</h1>
               <p className="text-xs text-ink-500 mt-0.5">All administrative actions on user accounts.</p>
@@ -721,7 +721,7 @@ export default function AdminPage() {
 
         {/* ── Permissions Tab (Admin only) ──────────────────────────────── */}
         {tab === 'permissions' && isAdmin && (
-          <div className="flex flex-col gap-6 max-w-4xl">
+          <div className="flex flex-col gap-6 w-full">
             <div>
               <h1 className="text-lg font-semibold text-ink-900">Role permissions</h1>
               <p className="text-xs text-ink-500 mt-0.5">
@@ -818,7 +818,7 @@ export default function AdminPage() {
 
         {/* ── Settings Tab (Admin only) ──────────────────────────────────── */}
         {tab === 'settings' && isAdmin && (
-          <div className="max-w-xl">
+          <div className="w-full">
             <h1 className="text-lg font-semibold text-ink-900 mb-4">Settings</h1>
             <div className="bg-white rounded-[12px] border border-ink-200 p-6 text-sm text-ink-500">
               Application settings will be available in a future release.

@@ -38,7 +38,7 @@ export default function StandardRunPage() {
 
   if (standardTCs.length === 0) {
     return (
-      <div className="p-3 md:p-4 lg:p-8 max-w-3xl">
+      <div className="p-3 md:p-4 lg:p-8 w-full">
         <h1 className="text-2xl font-bold text-ink-900 mb-4">Standard Test Run</h1>
         <div className="card p-10 border-dashed text-center text-ink-400">
           <p className="text-sm mb-3">No Standard test cases to run.</p>
@@ -117,7 +117,7 @@ export default function StandardRunPage() {
   const evidenceTC = evidenceTCId ? standardTCs.find(t => t.id === evidenceTCId) : null
 
   return (
-    <div className="p-3 md:p-4 lg:p-8 max-w-5xl w-full">
+    <div className="p-3 md:p-4 lg:p-8 w-full">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>

@@ -42,7 +42,7 @@ export default function APIRunPage() {
 
   if (apiTCs.length === 0) {
     return (
-      <div className="p-3 md:p-4 lg:p-8 max-w-3xl">
+      <div className="p-3 md:p-4 lg:p-8 w-full">
         <h1 className="text-2xl font-bold text-ink-900 mb-4">API Test Run</h1>
         <div className="card p-10 border-dashed text-center text-ink-400">
           <p className="text-sm mb-3">No API test cases to run.</p>
@@ -123,7 +123,7 @@ export default function APIRunPage() {
   const someRunning = running.size > 0
 
   return (
-    <div className="p-3 md:p-4 lg:p-8 max-w-5xl w-full">
+    <div className="p-3 md:p-4 lg:p-8 w-full">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>

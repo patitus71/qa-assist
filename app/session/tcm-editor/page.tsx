@@ -398,7 +398,7 @@ export default function TCMEditorPage() {
 
   if (!tcm) {
     return (
-      <div className="p-3 md:p-4 lg:p-8 max-w-5xl w-full">
+      <div className="p-3 md:p-4 lg:p-8 w-full">
         <div className="card p-10 text-center border-dashed">
           <p className="text-ink-500 mb-3">No TCM in session yet.</p>
           <a href="/session/generate" className="btn-primary text-sm">
@@ -415,7 +415,7 @@ export default function TCMEditorPage() {
   const typeBadgeColor = { standard: 'bg-accent/10 text-accent', e2e: 'bg-purple-100 text-purple-700', api: 'bg-green-100 text-green-700' }[type]
 
   return (
-    <div className="p-3 md:p-4 lg:p-8 max-w-6xl w-full">
+    <div className="p-3 md:p-4 lg:p-8 w-full">
 
       {/* Toast */}
       {toast && (

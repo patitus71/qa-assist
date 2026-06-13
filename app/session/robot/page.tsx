@@ -226,7 +226,7 @@ export default function RobotPage() {
 
   if (totalTCs === 0) {
     return (
-      <div className="p-3 md:p-4 lg:p-8 max-w-3xl">
+      <div className="p-3 md:p-4 lg:p-8 w-full">
         <h1 className="text-2xl font-bold text-ink-900 mb-4">Robot Export</h1>
         <div className="card p-10 border-dashed text-center text-ink-400">
           <p className="text-sm">No test cases to export. Generate or import test cases first.</p>
@@ -238,7 +238,7 @@ export default function RobotPage() {
   const activeContent = mode === 'default' ? defaultContent : customContent
 
   return (
-    <div className="p-3 md:p-4 lg:p-8 max-w-6xl w-full">
+    <div className="p-3 md:p-4 lg:p-8 w-full">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-ink-900">Robot Export</h1>

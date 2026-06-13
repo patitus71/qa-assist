@@ -239,7 +239,7 @@ function JiraPullSection({ session, router }: {
 
   if (!open) {
     return (
-      <div className="max-w-5xl mx-auto mt-6">
+      <div className="mt-6">
         <button onClick={() => setOpen(true)} className="text-xs text-ink-400 hover:text-ink-700 transition-colors flex items-center gap-1.5 mx-auto">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zm0 4v4m0 2v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
           Pull sub-task with existing test cases from Jira
@@ -482,7 +482,7 @@ export default function LandingPage() {
 
       {/* Three cards */}
       <div className="flex-1 px-3 md:px-8 pb-12">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
           {/* Card A: Jira */}
           <div className="card p-6 flex flex-col gap-4">

@@ -94,7 +94,7 @@ export default function TimesheetPage() {
 
   return (
     <div className="flex-1 p-3 md:p-4 lg:p-8 min-w-0 bg-[#F4F4F6] dark:bg-ink-900">
-      <div className="max-w-4xl flex flex-col gap-6">
+      <div className="w-full flex flex-col gap-6">
 
           {/* Header */}
           <div className="flex items-center justify-between">

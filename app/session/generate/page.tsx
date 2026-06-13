@@ -308,7 +308,7 @@ export default function GeneratePage() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-3 md:p-4 lg:p-8 max-w-5xl w-full">
+    <div className="p-3 md:p-4 lg:p-8 w-full">
 
       {/* Toast */}
       {toast && (
