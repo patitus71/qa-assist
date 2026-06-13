@@ -2,7 +2,7 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import type { StandardTC, E2ETC, APITC, TC } from './types'
+import type { StandardTC, E2ETC, APITC, TC, TCMState } from './types'
 import { saveSession } from './autosave'
 
 interface SessionState {
@@ -12,6 +12,7 @@ interface SessionState {
   standardTCs: StandardTC[]
   e2eTCs: E2ETC[]
   apiTCs: APITC[]
+  tcm: TCMState | null
 }
 
 interface SessionContextValue extends SessionState {
@@ -21,6 +22,7 @@ interface SessionContextValue extends SessionState {
   setE2eTCs: (tcs: E2ETC[]) => void
   setApiTCs: (tcs: APITC[]) => void
   updateTC: (tc: TC) => void
+  setTcm: (tcm: TCMState | null) => void
   clearAll: () => void
 }
 
@@ -33,6 +35,7 @@ const INITIAL_STATE: SessionState = {
   standardTCs: [],
   e2eTCs: [],
   apiTCs: [],
+  tcm: null,
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
@@ -85,6 +88,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const setTcm = useCallback((tcm: TCMState | null) => {
+    setState(s => ({ ...s, tcm }))
+  }, [])
+
   const clearAll = useCallback(() => {
     setState(INITIAL_STATE)
   }, [])
@@ -99,6 +106,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setE2eTCs,
         setApiTCs,
         updateTC,
+        setTcm,
         clearAll,
       }}
     >

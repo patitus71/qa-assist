@@ -4,10 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from '@/lib/session-context'
-import { StandardTCTable } from '@/app/components/StandardTCTable'
-import { E2ETCTable } from '@/app/components/E2ETCTable'
-import { APITCTable } from '@/app/components/APITCTable'
-import type { StandardTC, E2ETC, APITC } from '@/lib/types'
+import type { TCMGroup, TCMRow, TCMState, TCPriority } from '@/lib/types'
 import type { ParsedTCM } from '@/lib/parse-tcm'
 
 type GenType = 'standard' | 'e2e' | 'api'
@@ -87,11 +84,10 @@ interface GenCardProps {
   description: string
   isGenerating: boolean
   error?: string
-  count?: number
   onGenerate: () => void
 }
 
-function GenCard({ icon, title, coverage, description, isGenerating, error, count, onGenerate }: GenCardProps) {
+function GenCard({ icon, title, coverage, description, isGenerating, error, onGenerate }: GenCardProps) {
   return (
     <div className="card p-5 flex flex-col">
       <div className="flex items-center gap-2.5 mb-3">
@@ -100,11 +96,6 @@ function GenCard({ icon, title, coverage, description, isGenerating, error, coun
           <h2 className="text-sm font-semibold text-ink-900">{title}</h2>
           <p className="font-mono text-[10px] text-ink-400 tracking-wide">{coverage}</p>
         </div>
-        {count !== undefined && count > 0 && (
-          <span className="ml-auto font-mono text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-full border border-accent/20">
-            {count} TC
-          </span>
-        )}
       </div>
       <p className="text-sm text-ink-500 flex-1 leading-relaxed">{description}</p>
       {error && <p className="text-xs text-danger mt-2">{error}</p>}
@@ -114,85 +105,28 @@ function GenCard({ icon, title, coverage, description, isGenerating, error, coun
         disabled={isGenerating}
       >
         {isGenerating && <IconSpinner />}
-        {isGenerating ? 'Generating…' : `Generate ${title}`}
+        {isGenerating ? 'Generating TCM…' : `Generate ${title} TCM`}
       </button>
     </div>
   )
 }
 
-// ── NewTCCard (accept/reject) ─────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function NewTCCard({
-  tc, accepted, rejected, onAccept, onReject,
-}: {
-  tc: StandardTC
-  accepted: boolean
-  rejected: boolean
-  onAccept: () => void
-  onReject: () => void
-}) {
-  if (rejected) return null
-
-  return (
-    <div
-      className="rounded-lg p-3 mb-2 flex gap-3 transition-all"
-      style={{
-        borderLeft: `3px solid ${accepted ? '#0B7A51' : '#1A56DB'}`,
-        backgroundColor: accepted ? '#F0FDF9' : '#F0F7FF',
-      }}
-    >
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
-          {accepted ? (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-success text-white px-2 py-0.5 rounded-full">
-              <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1.5 4l2 2 3-3" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
-              Added
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-accent text-white px-2 py-0.5 rounded-full">
-              <span className="w-1.5 h-1.5 bg-success rounded-full inline-block" />
-              NEW
-            </span>
-          )}
-          <span className="font-mono text-[10px] text-ink-400">{tc.id}</span>
-          <span className={`badge-priority-${tc.priority.toLowerCase()} text-[10px]`}>{tc.priority}</span>
-          {tc.positiveNegative && (
-            <span className={`text-[10px] font-medium ${tc.positiveNegative === 'Positive' ? 'text-success' : 'text-danger'}`}>
-              {tc.positiveNegative}
-            </span>
-          )}
-        </div>
-        <p className="text-sm font-medium text-ink-900 mb-1">{tc.title}</p>
-        {tc.steps && (
-          <p className="text-xs text-ink-500 line-clamp-2 leading-relaxed">{tc.steps}</p>
-        )}
-      </div>
-      <div className="flex flex-col gap-1.5 shrink-0">
-        {!accepted ? (
-          <button
-            onClick={onAccept}
-            className="text-xs border border-success text-success rounded-lg px-3 py-1 hover:bg-success hover:text-white transition-colors whitespace-nowrap"
-          >
-            Accept
-          </button>
-        ) : (
-          <button
-            onClick={onAccept}
-            className="text-xs border border-success bg-success text-white rounded-lg px-3 py-1"
-            disabled
-          >
-            Added ✓
-          </button>
-        )}
-        <button
-          onClick={onReject}
-          className="text-xs border border-ink-200 text-ink-400 rounded-lg px-3 py-1 hover:bg-ink-100 transition-colors"
-        >
-          Reject
-        </button>
-      </div>
-    </div>
-  )
+function convertExistingToRows(groups: TCMGroup[], existingTCs: ParsedTCM['existingTCs']): TCMRow[] {
+  return existingTCs.map((tc, i) => ({
+    id: `TCM-exist-${String(i + 1).padStart(2, '0')}`,
+    scenario: tc.title,
+    checks: Object.fromEntries(
+      groups.map(g => [
+        g.name,
+        Object.fromEntries(g.values.map(v => [v, tc.combinations[g.name]?.includes(v) ?? false])),
+      ])
+    ),
+    posNeg: 'Positive' as const,
+    priority: 'Med' as TCPriority,
+    isNew: false,
+  }))
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -214,7 +148,7 @@ export default function GeneratePage() {
   const [swaggerLoading, setSwaggerLoading] = useState(false)
   const [swaggerError, setSwaggerError] = useState('')
 
-  // TCM upload
+  // TCM upload (existing TCM file)
   const [tcmExpanded, setTcmExpanded] = useState(false)
   const [tcmData, setTcmData] = useState<ParsedTCM | null>(null)
   const [tcmFileName, setTcmFileName] = useState('')
@@ -223,26 +157,13 @@ export default function GeneratePage() {
   const [tcmError, setTcmError] = useState('')
   const tcmInputRef = useRef<HTMLInputElement>(null)
 
-  // Accept/reject state (for TCM mode)
-  const [acceptedIds, setAcceptedIds] = useState<Set<string>>(new Set())
-  const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set())
-
   // Toast
   const [toast, setToast] = useState('')
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Generation state
-  const [generating, setGenerating] = useState<Set<GenType>>(new Set())
+  const [generating, setGenerating] = useState<GenType | null>(null)
   const [genErrors, setGenErrors] = useState<Partial<Record<GenType, string>>>({})
-
-  // Draft TCs (local — not yet in session)
-  const [draftStandard, setDraftStandard] = useState<StandardTC[]>([])
-  const [draftE2E, setDraftE2E] = useState<E2ETC[]>([])
-  const [draftAPI, setDraftAPI] = useState<APITC[]>([])
-  const [activeTab, setActiveTab] = useState<GenType>('standard')
-
-  const hasDrafts = draftStandard.length > 0 || draftE2E.length > 0 || draftAPI.length > 0
-  const tcmMode = tcmData !== null
 
   // ── Toast ──────────────────────────────────────────────────────────────────
 
@@ -320,141 +241,69 @@ export default function GeneratePage() {
     }
   }
 
-  // ── Generate ───────────────────────────────────────────────────────────────
+  // ── Generate TCM ───────────────────────────────────────────────────────────
 
-  async function generate(type: GenType | 'all') {
+  async function generate(type: GenType) {
     if (!localReq.trim()) return
-    const affected: GenType[] = type === 'all' ? ['standard', 'e2e', 'api'] : [type]
-    setGenerating(new Set(affected))
+    setGenerating(type)
     setGenErrors({})
-    setAcceptedIds(new Set())
-    setRejectedIds(new Set())
+
+    session.setRequirement(localReq, session.jiraKey ?? undefined)
+    session.setImages(localImages)
 
     try {
-      const res = await fetch('/api/generate', {
+      const res = await fetch('/api/generate-tcm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type,
           requirement: localReq,
           images: localImages,
-          swaggerContext: swaggerContent || undefined,
+          ...(swaggerContent ? { swaggerContext: swaggerContent } : {}),
           ...(tcmData ? {
             existingTCM: {
               groups: tcmData.groups.map(g => ({ name: g.name, values: g.values })),
-              existingTCs: tcmData.existingTCs.map(tc => ({ title: tc.title })),
+              existingTCs: tcmData.existingTCs.map(tc => ({
+                title: tc.title,
+                combinations: tc.combinations,
+              })),
             },
           } : {}),
         }),
       })
-      const data = await res.json() as {
-        standard?: StandardTC[]
-        e2e?: E2ETC[]
-        api?: APITC[]
-        error?: string
-      }
+
+      const data = await res.json() as { groups?: TCMGroup[]; rows?: TCMRow[]; error?: string }
 
       if (!res.ok) {
-        const msg = data.error ?? 'Generation failed'
-        const errs: Partial<Record<GenType, string>> = {}
-        affected.forEach(t => { errs[t] = msg })
-        setGenErrors(errs)
+        setGenErrors({ [type]: data.error ?? 'Generation failed' })
         return
       }
 
-      if (data.standard?.length) setDraftStandard(data.standard)
-      if (data.e2e?.length) setDraftE2E(data.e2e)
-      if (data.api?.length) setDraftAPI(data.api)
+      const groups = data.groups ?? []
+      const newRows = data.rows ?? []
 
-      if (type === 'all') {
-        if (data.standard?.length) setActiveTab('standard')
-        else if (data.e2e?.length) setActiveTab('e2e')
-        else if (data.api?.length) setActiveTab('api')
+      let allRows: TCMRow[] = newRows
+      if (tcmData && tcmData.existingTCs.length > 0) {
+        const existingRows = convertExistingToRows(groups, tcmData.existingTCs)
+        allRows = [...existingRows, ...newRows]
+      }
+
+      const tcmState: TCMState = { groups, rows: allRows, type }
+      session.setTcm(tcmState)
+
+      if (tcmData) {
+        showToast(`TCM ready — ${tcmData.totalTCCount} existing + ${newRows.length} new rows`)
       } else {
-        setActiveTab(type)
+        showToast(`TCM generated — ${allRows.length} rows`)
       }
 
-      // Toast after TCM generation
-      if (tcmData && data.standard?.length) {
-        showToast(`${tcmData.totalTCCount} existing + ${data.standard.length} new TCs suggested`)
-      }
+      setTimeout(() => router.push('/session/tcm-editor'), 400)
     } catch {
-      const errs: Partial<Record<GenType, string>> = {}
-      affected.forEach(t => { errs[t] = 'Network error — check connection' })
-      setGenErrors(errs)
+      setGenErrors({ [type]: 'Network error — check connection' })
     } finally {
-      setGenerating(new Set())
+      setGenerating(null)
     }
   }
-
-  // ── Save to session ────────────────────────────────────────────────────────
-
-  function saveToSession() {
-    session.setRequirement(localReq, session.jiraKey ?? undefined)
-    session.setImages(localImages)
-
-    if (tcmMode) {
-      const accepted = draftStandard.filter(tc => !rejectedIds.has(tc.id))
-      if (accepted.length) session.setStandardTCs([...session.standardTCs, ...accepted])
-      const e2eAccepted = draftE2E.filter(tc => !rejectedIds.has(tc.id))
-      if (e2eAccepted.length) session.setE2eTCs([...session.e2eTCs, ...e2eAccepted])
-      const apiAccepted = draftAPI.filter(tc => !rejectedIds.has(tc.id))
-      if (apiAccepted.length) session.setApiTCs([...session.apiTCs, ...apiAccepted])
-
-      const totalAdded = accepted.length + e2eAccepted.length + apiAccepted.length
-      showToast(`${totalAdded} TC${totalAdded !== 1 ? 's' : ''} added to session`)
-      setDraftStandard([]); setDraftE2E([]); setDraftAPI([])
-      setTimeout(() => {
-        if (accepted.length) router.push('/session/standard')
-        else if (e2eAccepted.length) router.push('/session/e2e')
-        else router.push('/session/api')
-      }, 600)
-    } else {
-      if (draftStandard.length) session.setStandardTCs([...session.standardTCs, ...draftStandard])
-      if (draftE2E.length) session.setE2eTCs([...session.e2eTCs, ...draftE2E])
-      if (draftAPI.length) session.setApiTCs([...session.apiTCs, ...draftAPI])
-      setDraftStandard([]); setDraftE2E([]); setDraftAPI([])
-      if (draftStandard.length) router.push('/session/standard')
-      else if (draftE2E.length) router.push('/session/e2e')
-      else router.push('/session/api')
-    }
-  }
-
-  // ── Accept / Reject helpers ────────────────────────────────────────────────
-
-  function acceptTC(id: string) {
-    setAcceptedIds(prev => new Set([...prev, id]))
-    setRejectedIds(prev => { const n = new Set(prev); n.delete(id); return n })
-  }
-
-  function rejectTC(id: string) {
-    setRejectedIds(prev => new Set([...prev, id]))
-    setAcceptedIds(prev => { const n = new Set(prev); n.delete(id); return n })
-  }
-
-  function acceptAll() {
-    setAcceptedIds(new Set(draftStandard.map(t => t.id)))
-    setRejectedIds(new Set())
-  }
-
-  function rejectAll() {
-    setRejectedIds(new Set(draftStandard.map(t => t.id)))
-    setAcceptedIds(new Set())
-  }
-
-  // ── Derived counts ─────────────────────────────────────────────────────────
-
-  const visibleNewTCs  = draftStandard.filter(tc => !rejectedIds.has(tc.id))
-  const acceptedCount  = visibleNewTCs.filter(tc => acceptedIds.has(tc.id)).length
-  const pendingCount   = visibleNewTCs.filter(tc => !acceptedIds.has(tc.id)).length
-
-  // ── Tabs (non-TCM mode) ────────────────────────────────────────────────────
-
-  const tabs = [
-    draftStandard.length > 0 && { key: 'standard' as GenType, label: 'Standard', count: draftStandard.length },
-    draftE2E.length > 0 && { key: 'e2e' as GenType, label: 'E2E', count: draftE2E.length },
-    draftAPI.length > 0 && { key: 'api' as GenType, label: 'API', count: draftAPI.length },
-  ].filter(Boolean) as { key: GenType; label: string; count: number }[]
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -473,7 +322,7 @@ export default function GeneratePage() {
         <div>
           <h1 className="text-2xl font-bold text-ink-900">Generate Test Cases</h1>
           <p className="text-ink-500 text-sm mt-0.5">
-            AI generates from your requirement. Review and edit before saving.
+            AI generates a TCM matrix first — review &amp; edit, then convert to test cases.
           </p>
         </div>
         {session.jiraKey && (
@@ -575,7 +424,7 @@ export default function GeneratePage() {
             <path d="M8 10h8M8 14h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             <path d="M8 6h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
-          <span>Import TCM <span className="font-normal text-ink-400 text-xs">(optional — ให้ AI gen เฉพาะ TC ที่ยังขาด)</span></span>
+          <span>Import existing TCM <span className="font-normal text-ink-400 text-xs">(optional — AI generates only missing combinations)</span></span>
           {tcmData && (
             <span className="ml-2 inline-flex items-center gap-1 font-mono text-[10px] bg-success/10 text-success px-2 py-0.5 rounded-full border border-success/20">
               <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1.5 4l2 2 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
@@ -587,104 +436,109 @@ export default function GeneratePage() {
           </svg>
         </button>
         <div className={`transition-all ${tcmExpanded ? 'px-4 pb-4 pt-3' : 'h-0 overflow-hidden'}`}>
-            {!tcmData ? (
-              // Upload zone
-              <>
-                <div
-                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${tcmDragOver ? 'border-accent bg-accent/5' : 'border-ink-200 hover:border-ink-300'}`}
-                  onDragOver={e => { e.preventDefault(); setTcmDragOver(true) }}
-                  onDragLeave={() => setTcmDragOver(false)}
-                  onDrop={async e => {
-                    e.preventDefault(); setTcmDragOver(false)
-                    const file = e.dataTransfer.files[0]
+          {!tcmData ? (
+            <>
+              <div
+                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${tcmDragOver ? 'border-accent bg-accent/5' : 'border-ink-200 hover:border-ink-300'}`}
+                onDragOver={e => { e.preventDefault(); setTcmDragOver(true) }}
+                onDragLeave={() => setTcmDragOver(false)}
+                onDrop={async e => {
+                  e.preventDefault(); setTcmDragOver(false)
+                  const file = e.dataTransfer.files[0]
+                  if (file) await handleTcmFile(file)
+                }}
+                onClick={() => tcmInputRef.current?.click()}
+              >
+                <svg className="mx-auto mb-2 text-ink-300" width="28" height="28" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M8 10h8M8 14h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M8 6h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                {tcmLoading ? (
+                  <span className="text-sm text-ink-400 flex items-center justify-center gap-2">
+                    <IconSpinner /> Parsing TCM…
+                  </span>
+                ) : (
+                  <span className="text-sm text-ink-400">
+                    Drop your <span className="font-mono font-medium">.xlsx</span> TCM here · <span className="underline">Browse</span>
+                  </span>
+                )}
+                <input
+                  ref={tcmInputRef} type="file" accept=".xlsx" className="hidden"
+                  onChange={async e => {
+                    const file = e.target.files?.[0]
                     if (file) await handleTcmFile(file)
+                    e.target.value = ''
                   }}
-                  onClick={() => tcmInputRef.current?.click()}
-                >
-                  <svg className="mx-auto mb-2 text-ink-300" width="28" height="28" viewBox="0 0 24 24" fill="none">
-                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" />
-                    <path d="M8 10h8M8 14h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                    <path d="M8 6h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
-                  {tcmLoading ? (
-                    <span className="text-sm text-ink-400 flex items-center justify-center gap-2">
-                      <IconSpinner /> Parsing TCM…
-                    </span>
-                  ) : (
-                    <span className="text-sm text-ink-400">
-                      Drop your <span className="font-mono font-medium">.xlsx</span> TCM here · <span className="underline">Browse</span>
-                    </span>
-                  )}
-                  <input
-                    ref={tcmInputRef} type="file" accept=".xlsx" className="hidden"
-                    onChange={async e => {
-                      const file = e.target.files?.[0]
-                      if (file) await handleTcmFile(file)
-                      e.target.value = ''
-                    }}
-                  />
-                </div>
-                {tcmError && <p className="text-xs text-danger mt-2">{tcmError}</p>}
-              </>
-            ) : (
-              // TCM summary
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <span className="text-sm font-medium text-ink-800">
-                      Found <span className="text-accent font-bold">{tcmData.totalTCCount}</span> existing test cases
-                      {tcmData.groups.length > 0 && ` across ${tcmData.groups.length} group${tcmData.groups.length !== 1 ? 's' : ''}`}
-                    </span>
-                    <p className="text-[10px] text-ink-400 mt-0.5 font-mono">{tcmFileName}</p>
-                  </div>
-                  <button
-                    onClick={() => { setTcmData(null); setTcmFileName(''); setTcmError('') }}
-                    className="text-xs text-ink-400 hover:text-danger transition-colors"
-                  >
-                    Remove
-                  </button>
-                </div>
-
-                {/* Group chips */}
-                {tcmData.groups.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {tcmData.groups.map(g => (
-                      <span
-                        key={g.name}
-                        className="font-mono text-[11px] bg-ink-100 text-ink-600 px-2.5 py-1 rounded-full border border-ink-200"
-                      >
-                        {g.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Group value count table */}
-                {tcmData.groups.length > 0 && (
-                  <div className="rounded-lg border border-ink-100 overflow-hidden">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="bg-ink-50 text-ink-500">
-                          <th className="px-3 py-2 text-left font-medium">Group</th>
-                          <th className="px-3 py-2 text-left font-medium">Values</th>
-                          <th className="px-3 py-2 text-right font-medium font-mono">Count</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tcmData.groups.map((g, i) => (
-                          <tr key={g.name} className={i % 2 === 1 ? 'bg-ink-50/50' : ''}>
-                            <td className="px-3 py-2 font-medium text-ink-700">{g.name}</td>
-                            <td className="px-3 py-2 text-ink-500 font-mono">{g.values.join(', ') || '—'}</td>
-                            <td className="px-3 py-2 text-right font-mono text-ink-400">{g.values.length}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                />
               </div>
-            )}
-          </div>
+              {tcmError && <p className="text-xs text-danger mt-2">{tcmError}</p>}
+            </>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <span className="text-sm font-medium text-ink-800">
+                    Found <span className="text-accent font-bold">{tcmData.totalTCCount}</span> existing TCs
+                    {tcmData.groups.length > 0 && ` across ${tcmData.groups.length} group${tcmData.groups.length !== 1 ? 's' : ''}`}
+                  </span>
+                  <p className="text-[10px] text-ink-400 mt-0.5 font-mono">{tcmFileName}</p>
+                </div>
+                <button
+                  onClick={() => { setTcmData(null); setTcmFileName(''); setTcmError('') }}
+                  className="text-xs text-ink-400 hover:text-danger transition-colors"
+                >
+                  Remove
+                </button>
+              </div>
+
+              {tcmData.groups.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {tcmData.groups.map(g => (
+                    <span key={g.name} className="font-mono text-[11px] bg-ink-100 text-ink-600 px-2.5 py-1 rounded-full border border-ink-200">
+                      {g.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {tcmData.groups.length > 0 && (
+                <div className="rounded-lg border border-ink-100 overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-ink-50 text-ink-500">
+                        <th className="px-3 py-2 text-left font-medium">Group</th>
+                        <th className="px-3 py-2 text-left font-medium">Values</th>
+                        <th className="px-3 py-2 text-right font-medium font-mono">Count</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tcmData.groups.map((g, i) => (
+                        <tr key={g.name} className={i % 2 === 1 ? 'bg-ink-50/50' : ''}>
+                          <td className="px-3 py-2 font-medium text-ink-700">{g.name}</td>
+                          <td className="px-3 py-2 text-ink-500 font-mono">{g.values.join(', ') || '—'}</td>
+                          <td className="px-3 py-2 text-right font-mono text-ink-400">{g.values.length}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Flow hint */}
+      <div className="flex items-center gap-2 mb-5 text-xs text-ink-400 px-1">
+        <span className="font-mono bg-ink-100 text-ink-600 px-2 py-0.5 rounded">1</span>
+        <span>Generate TCM</span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M7 3l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <span className="font-mono bg-ink-100 text-ink-600 px-2 py-0.5 rounded">2</span>
+        <span>Review &amp; edit</span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M7 3l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <span className="font-mono bg-ink-100 text-ink-600 px-2 py-0.5 rounded">3</span>
+        <span>Convert to TCs</span>
       </div>
 
       {/* Generate cards grid */}
@@ -693,244 +547,34 @@ export default function GeneratePage() {
           icon={<IconStandard />}
           title="Standard"
           coverage="Functional · Boundary · Security · Negative"
-          description="Up to 8 test cases covering all critical scenarios for a banking-grade feature."
-          isGenerating={generating.has('standard')}
+          description="Identifies test dimensions, generates a TCM matrix, then converts each row to a Standard TC."
+          isGenerating={generating === 'standard'}
           error={genErrors.standard}
-          count={draftStandard.length || undefined}
           onGenerate={() => generate('standard')}
         />
         <GenCard
           icon={<IconE2E />}
           title="E2E"
           coverage="User journey · Critical path · Cross-module"
-          description="Up to 3 end-to-end flows with step-by-step keyword actions for automation."
-          isGenerating={generating.has('e2e')}
+          description="Maps end-to-end flow dimensions to a TCM, then generates step-by-step E2E test cases."
+          isGenerating={generating === 'e2e'}
           error={genErrors.e2e}
-          count={draftE2E.length || undefined}
           onGenerate={() => generate('e2e')}
         />
         <GenCard
           icon={<IconAPI />}
           title="API"
           coverage="Endpoint · Assertion · Response validation"
-          description="Tests each API endpoint with full request/response assertion coverage."
-          isGenerating={generating.has('api')}
+          description="Maps API parameters and states to a TCM, then converts each combination to an API TC."
+          isGenerating={generating === 'api'}
           error={genErrors.api}
-          count={draftAPI.length || undefined}
           onGenerate={() => generate('api')}
         />
       </div>
 
-      {/* Generate all */}
-      <div className="flex justify-center mb-7">
-        <button
-          onClick={() => generate('all')}
-          disabled={generating.size > 0 || !localReq.trim()}
-          className="btn-ghost flex items-center gap-2 disabled:opacity-40"
-        >
-          {generating.size > 0 && <IconSpinner />}
-          Generate All (Standard + E2E + API)
-        </button>
-      </div>
-
-      {/* ── Results ──────────────────────────────────────────────────────────── */}
-      {hasDrafts && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-semibold text-ink-900">Review & Edit</h2>
-              <p className="text-xs text-ink-500 mt-0.5">
-                {tcmMode
-                  ? 'Review AI-suggested new TCs. Accept to add to session.'
-                  : 'Click any cell to edit inline · Drag rows to reorder · Add/delete as needed'}
-              </p>
-            </div>
-            {!tcmMode && (
-              <button onClick={saveToSession} className="btn-primary flex items-center gap-2">
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                  <path d="M2 9l4 4 8-8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                Save to session
-              </button>
-            )}
-          </div>
-
-          {/* ── TCM mode: two-section view ──────────────────────────────────── */}
-          {tcmMode && draftStandard.length > 0 ? (
-            <>
-              {/* Section A — Existing from TCM */}
-              <div className="mb-6">
-                <div className="flex items-center gap-2.5 mb-3 px-1">
-                  <div className="w-1 h-5 bg-ink-300 rounded-full" />
-                  <span className="text-sm font-semibold text-ink-500">Existing TCs from TCM</span>
-                  <span className="ml-auto font-mono text-[10px] text-ink-400">{tcmData!.totalTCCount} TCs — read only</span>
-                </div>
-                <div className="space-y-1">
-                  {tcmData!.existingTCs.slice(0, 12).map((tc, i) => (
-                    <div key={i} className="flex items-center gap-2.5 px-3 py-2 bg-ink-50 rounded-lg border border-ink-100">
-                      <span className="font-mono text-[10px] text-ink-300 shrink-0">existing</span>
-                      <span className="text-sm text-ink-500 truncate">{tc.title}</span>
-                    </div>
-                  ))}
-                  {tcmData!.totalTCCount > 12 && (
-                    <p className="text-xs text-ink-400 text-center py-2">
-                      +{tcmData!.totalTCCount - 12} more in uploaded file
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Section B — AI new */}
-              <div>
-                <div className="flex items-center gap-2.5 mb-3 px-1 flex-wrap gap-y-2">
-                  <div className="w-1 h-5 bg-accent rounded-full" />
-                  <span className="text-sm font-semibold text-ink-900">AI-suggested additions</span>
-                  <div className="flex items-center gap-1.5 ml-2">
-                    {acceptedCount > 0 && (
-                      <span className="font-mono text-[10px] bg-success/10 text-success px-1.5 py-0.5 rounded-full">
-                        {acceptedCount} accepted
-                      </span>
-                    )}
-                    {pendingCount > 0 && (
-                      <span className="font-mono text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-full">
-                        {pendingCount} pending
-                      </span>
-                    )}
-                    {rejectedIds.size > 0 && (
-                      <span className="font-mono text-[10px] bg-ink-100 text-ink-400 px-1.5 py-0.5 rounded-full">
-                        {rejectedIds.size} rejected
-                      </span>
-                    )}
-                  </div>
-                  <div className="ml-auto flex gap-2">
-                    <button onClick={acceptAll} className="text-xs border border-success text-success rounded-lg px-3 py-1.5 hover:bg-success hover:text-white transition-colors">
-                      Accept all
-                    </button>
-                    <button onClick={rejectAll} className="text-xs border border-ink-200 text-ink-400 rounded-lg px-3 py-1.5 hover:bg-ink-100 transition-colors">
-                      Reject all
-                    </button>
-                  </div>
-                </div>
-
-                {visibleNewTCs.length === 0 ? (
-                  <div className="card p-6 text-center text-ink-400 border-dashed">
-                    <p className="text-sm">All AI suggestions rejected.</p>
-                  </div>
-                ) : (
-                  <div>
-                    {draftStandard.map(tc => (
-                      <NewTCCard
-                        key={tc.id}
-                        tc={tc}
-                        accepted={acceptedIds.has(tc.id)}
-                        rejected={rejectedIds.has(tc.id)}
-                        onAccept={() => acceptTC(tc.id)}
-                        onReject={() => rejectTC(tc.id)}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {/* E2E / API in regular tabs if also generated */}
-                {(draftE2E.length > 0 || draftAPI.length > 0) && (
-                  <div className="mt-6">
-                    <div className="flex border-b border-ink-200 mb-4">
-                      {draftE2E.length > 0 && (
-                        <button
-                          onClick={() => setActiveTab('e2e')}
-                          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${activeTab === 'e2e' ? 'border-accent text-accent' : 'border-transparent text-ink-500 hover:text-ink-700'}`}
-                        >
-                          E2E <span className="font-mono text-[10px] ml-1">{draftE2E.length}</span>
-                        </button>
-                      )}
-                      {draftAPI.length > 0 && (
-                        <button
-                          onClick={() => setActiveTab('api')}
-                          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${activeTab === 'api' ? 'border-accent text-accent' : 'border-transparent text-ink-500 hover:text-ink-700'}`}
-                        >
-                          API <span className="font-mono text-[10px] ml-1">{draftAPI.length}</span>
-                        </button>
-                      )}
-                    </div>
-                    {activeTab === 'e2e' && draftE2E.length > 0 && (
-                      <E2ETCTable tcs={draftE2E} onChange={setDraftE2E} />
-                    )}
-                    {activeTab === 'api' && draftAPI.length > 0 && (
-                      <APITCTable tcs={draftAPI} onChange={setDraftAPI} />
-                    )}
-                  </div>
-                )}
-
-                {/* Save strip */}
-                <div className="mt-5 flex items-center justify-between p-4 bg-white rounded-card border border-ink-200">
-                  <div className="text-sm text-ink-500">
-                    <span className="font-mono text-ink-700">
-                      {visibleNewTCs.length}
-                    </span> new TC{visibleNewTCs.length !== 1 ? 's' : ''} will be added
-                  </div>
-                  <button
-                    onClick={saveToSession}
-                    disabled={visibleNewTCs.length === 0}
-                    className="btn-primary disabled:opacity-40"
-                  >
-                    Save to session →
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            /* ── Normal mode (no TCM or no standard drafts) ──────────────── */
-            <>
-              {tabs.length > 1 && (
-                <div className="flex border-b border-ink-200 mb-4">
-                  {tabs.map(tab => (
-                    <button
-                      key={tab.key}
-                      onClick={() => setActiveTab(tab.key)}
-                      className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2 ${
-                        activeTab === tab.key
-                          ? 'border-accent text-accent'
-                          : 'border-transparent text-ink-500 hover:text-ink-700'
-                      }`}
-                    >
-                      {tab.label}
-                      <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === tab.key ? 'bg-accent/10' : 'bg-ink-100'}`}>
-                        {tab.count}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {activeTab === 'standard' && draftStandard.length > 0 && (
-                <StandardTCTable tcs={draftStandard} onChange={setDraftStandard} />
-              )}
-              {activeTab === 'e2e' && draftE2E.length > 0 && (
-                <E2ETCTable tcs={draftE2E} onChange={setDraftE2E} />
-              )}
-              {activeTab === 'api' && draftAPI.length > 0 && (
-                <APITCTable tcs={draftAPI} onChange={setDraftAPI} />
-              )}
-
-              <div className="mt-5 flex items-center justify-between p-4 bg-white rounded-card border border-ink-200">
-                <div className="text-sm text-ink-500">
-                  <span className="font-mono text-ink-700">{draftStandard.length + draftE2E.length + draftAPI.length}</span> TC ready
-                  {draftStandard.length > 0 && <span className="ml-2">· {draftStandard.length} Standard</span>}
-                  {draftE2E.length > 0 && <span className="ml-2">· {draftE2E.length} E2E</span>}
-                  {draftAPI.length > 0 && <span className="ml-2">· {draftAPI.length} API</span>}
-                </div>
-                <button onClick={saveToSession} className="btn-primary">
-                  Save to session →
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
       {!localReq.trim() && (
         <div className="card p-8 border-dashed text-center text-ink-400">
-          <p className="text-sm">Enter a requirement above to enable generation.</p>
+          <p className="text-sm">Enter a requirement above to enable TCM generation.</p>
         </div>
       )}
     </div>

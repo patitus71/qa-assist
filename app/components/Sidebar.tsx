@@ -198,6 +198,9 @@ function IconClock() {
 function IconDashboard() {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" /><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" /><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" /><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" /></svg>
 }
+function IconTCM() {
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.5" /><path d="M2 6h12M2 10h12M6 2v12M10 2v12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
+}
 function IconMenu() {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
 }
@@ -256,6 +259,7 @@ export function Sidebar() {
       heading: 'SESSION',
       items: [
         { label: 'Generate TC', href: '/session/generate', icon: <IconGenerate />, alwaysActive: true },
+        { label: 'TCM Editor', href: '/session/tcm-editor', icon: <IconTCM />, alwaysActive: true },
         { label: 'Import Excel', href: '/session/import', icon: <IconFileUpload />, alwaysActive: true },
       ],
     },

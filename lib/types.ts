@@ -97,6 +97,22 @@ export interface TCMGroup {
   values: string[]
 }
 
+export interface TCMRow {
+  id: string
+  scenario: string
+  checks: Record<string, Record<string, boolean>>  // groupName → value → checked
+  posNeg: 'Positive' | 'Negative'
+  priority: TCPriority
+  isNew?: boolean     // true = AI-suggested (only when existing TCM was imported)
+  rejected?: boolean  // true = user rejected in TCM editor
+}
+
+export interface TCMState {
+  groups: TCMGroup[]
+  rows: TCMRow[]
+  type: 'standard' | 'e2e' | 'api'
+}
+
 export interface JiraIssue {
   key: string
   title: string
