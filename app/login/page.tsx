@@ -95,7 +95,7 @@ function LoginForm() {
   }
 
   const bgStyle: CSSProperties = {
-    background: 'linear-gradient(135deg, #EEF4FF 0%, #F4F4F6 60%)',
+    background: 'linear-gradient(135deg, #C7D2FE 0%, #EEF4FF 50%, #F4F4F6 100%)',
     position: 'relative',
     overflow: 'hidden',
   }
@@ -115,7 +115,7 @@ function LoginForm() {
       <div style={{
         position: 'absolute', borderRadius: '50%', pointerEvents: 'none',
         width: 360, height: 360,
-        background: 'rgba(99,131,219,0.22)',
+        background: 'rgba(99,131,219,0.55)',
         filter: 'blur(72px)',
         top: -120, left: -120,
       }} />
