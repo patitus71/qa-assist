@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, type FormEvent, type CSSProperties } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { signIn, getSession, useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
@@ -8,21 +8,6 @@ import { Suspense } from 'react'
 function roleDestination(role: string | undefined): string {
   if (role === 'ADMIN' || role === 'MANAGER') return '/admin'
   return '/dashboard'
-}
-
-function inputStyle(focused: boolean): CSSProperties {
-  return {
-    width: '100%',
-    fontSize: '0.875rem',
-    border: `1px solid ${focused ? '#1A56DB' : '#D1D5DB'}`,
-    borderRadius: 8,
-    padding: '10px 12px',
-    background: 'white',
-    outline: 'none',
-    color: '#111827',
-    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-    boxShadow: focused ? '0 0 0 3px rgba(26,86,219,0.15)' : 'none',
-  }
 }
 
 function LoginForm() {
@@ -34,8 +19,6 @@ function LoginForm() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [visible, setVisible] = useState(false)
-  const [emailFocused, setEmailFocused] = useState(false)
-  const [passwordFocused, setPasswordFocused] = useState(false)
   const [shakeCount, setShakeCount] = useState(0)
   const errorRef = useRef<HTMLParagraphElement>(null)
 
@@ -94,10 +77,10 @@ function LoginForm() {
     }
   }
 
-  const bgStyle: CSSProperties = {
-    background: 'linear-gradient(135deg, #C7D2FE 0%, #EEF4FF 50%, #F4F4F6 100%)',
-    position: 'relative',
-    overflow: 'hidden',
+  const bgStyle = {
+    background: 'linear-gradient(135deg, #EEF4FF 0%, #F4F4F6 60%)',
+    position: 'relative' as const,
+    overflow: 'hidden' as const,
   }
 
   if (status === 'loading' || status === 'authenticated') {
@@ -109,138 +92,148 @@ function LoginForm() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4" style={bgStyle}>
+    <>
+      {/*
+        #qa-login-card has ID specificity (1-0-0) which beats
+        .dark .bg-white and .dark input (0-x-x) in globals.css,
+        so !important here wins without touching globals.css.
+      */}
+      <style>{`
+        #qa-login-card {
+          background-color: white !important;
+          border: 1px solid #E5E7EB !important;
+        }
+        #qa-login-card .ql-label { color: #374151 !important; }
+        #qa-login-card .ql-title { color: #111827 !important; }
+        #qa-login-card .ql-muted { color: #9CA3AF !important; }
+        #qa-login-card input {
+          background-color: white !important;
+          color: #111827 !important;
+          border: 1px solid #D1D5DB !important;
+          border-radius: 8px !important;
+          padding: 10px 12px !important;
+          width: 100% !important;
+          font-size: 0.875rem !important;
+          outline: none !important;
+          box-shadow: none !important;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+        }
+        #qa-login-card input:focus {
+          border-color: #1A56DB !important;
+          box-shadow: 0 0 0 3px rgba(26,86,219,0.15) !important;
+        }
+        #qa-login-card input::placeholder {
+          color: #9CA3AF !important;
+        }
+      `}</style>
 
-      {/* Decorative circles */}
-      <div style={{
-        position: 'absolute', borderRadius: '50%', pointerEvents: 'none',
-        width: 360, height: 360,
-        background: 'rgba(99,131,219,0.55)',
-        filter: 'blur(72px)',
-        top: -120, left: -120,
-      }} />
-      <div style={{
-        position: 'absolute', borderRadius: '50%', pointerEvents: 'none',
-        width: 300, height: 300,
-        background: 'rgba(130,160,255,0.26)',
-        filter: 'blur(60px)',
-        bottom: -80, right: -80,
-      }} />
-      <div style={{
-        position: 'absolute', borderRadius: '50%', pointerEvents: 'none',
-        width: 220, height: 220,
-        background: 'rgba(180,205,255,0.30)',
-        filter: 'blur(52px)',
-        top: '45%', left: '58%',
-      }} />
-
-      {/* Card wrapper — fade-in via state */}
-      <div
-        className="w-full flex flex-col gap-4"
-        style={{
-          maxWidth: 380,
-          position: 'relative',
-          zIndex: 1,
-          opacity: visible ? 1 : 0,
-          transform: visible ? 'translateY(0)' : 'translateY(10px)',
-          transition: 'opacity 0.38s ease, transform 0.38s ease',
-        }}
-      >
-        {isExpired && (
-          <div className="bg-amber-50 border border-amber-200 rounded-[10px] px-4 py-3 text-sm text-amber-800">
-            <p className="font-medium mb-0.5">Session expired</p>
-            <p className="text-xs text-amber-700">Your work was saved. Sign in to resume where you left off.</p>
-          </div>
-        )}
+      <main className="min-h-screen flex items-center justify-center p-4" style={bgStyle}>
+        {/* Decorative blurred circles */}
+        <div style={{ position:'absolute', borderRadius:'50%', pointerEvents:'none', width:360, height:360, background:'rgba(99,131,219,0.18)', filter:'blur(64px)', top:-100, left:-100 }} />
+        <div style={{ position:'absolute', borderRadius:'50%', pointerEvents:'none', width:280, height:280, background:'rgba(160,185,255,0.22)', filter:'blur(56px)', bottom:-80, right:-80 }} />
+        <div style={{ position:'absolute', borderRadius:'50%', pointerEvents:'none', width:200, height:200, background:'rgba(200,215,255,0.26)', filter:'blur(48px)', top:'50%', left:'62%' }} />
 
         <div
-          className="bg-white p-8"
+          className="w-full flex flex-col gap-4"
           style={{
-            borderRadius: 16,
-            border: '1px solid #E5E7EB',
-            boxShadow: '0 4px 32px 0 rgba(13,13,14,0.10), 0 1px 4px 0 rgba(0,0,0,0.04)',
+            maxWidth: 380,
+            position: 'relative',
+            zIndex: 1,
+            opacity: visible ? 1 : 0,
+            transform: visible ? 'translateY(0)' : 'translateY(10px)',
+            transition: 'opacity 0.38s ease, transform 0.38s ease',
           }}
         >
-          {/* Logo */}
-          <div className="flex flex-col items-center gap-2 mb-8">
-            <span
-              className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center"
-              style={{ boxShadow: '0 2px 10px rgba(26,86,219,0.30)' }}
-            >
-              <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1L10 6H15L11 9.5L12.5 15L8 11.5L3.5 15L5 9.5L1 6H6L8 1Z" fill="white" />
-              </svg>
-            </span>
-            <span className="text-lg font-semibold text-ink-900">QA Assist</span>
-            <p className="text-xs text-ink-400">Sign in to your account</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-ink-700" htmlFor="email">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                onFocus={() => setEmailFocused(true)}
-                onBlur={() => setEmailFocused(false)}
-                style={inputStyle(emailFocused)}
-                placeholder="you@bank.th"
-              />
+          {isExpired && (
+            <div className="bg-amber-50 border border-amber-200 rounded-[10px] px-4 py-3 text-sm text-amber-800">
+              <p className="font-medium mb-0.5">Session expired</p>
+              <p className="text-xs text-amber-700">Your work was saved. Sign in to resume where you left off.</p>
             </div>
+          )}
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-ink-700" htmlFor="password">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                onFocus={() => setPasswordFocused(true)}
-                onBlur={() => setPasswordFocused(false)}
-                style={inputStyle(passwordFocused)}
-              />
-            </div>
-
-            {error && (
-              <p
-                ref={errorRef}
-                className="text-xs text-danger bg-red-50 border border-red-200 rounded-lg px-3 py-2"
+          <div
+            id="qa-login-card"
+            className="p-8"
+            style={{
+              borderRadius: 16,
+              boxShadow: '0 4px 32px 0 rgba(13,13,14,0.09), 0 1px 4px 0 rgba(0,0,0,0.04)',
+            }}
+          >
+            {/* Logo */}
+            <div className="flex flex-col items-center gap-2 mb-8">
+              <span
+                className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center"
+                style={{ boxShadow: '0 2px 10px rgba(26,86,219,0.28)' }}
               >
-                {error}
-              </p>
-            )}
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 1L10 6H15L11 9.5L12.5 15L8 11.5L3.5 15L5 9.5L1 6H6L8 1Z" fill="white" />
+                </svg>
+              </span>
+              <span className="ql-title text-lg font-semibold">QA Assist</span>
+              <p className="ql-muted text-xs">Sign in to your account</p>
+            </div>
 
-            <button
-              type="submit"
-              disabled={loading || !email || !password}
-              className="w-full btn-primary py-2.5 mt-1 flex items-center justify-center gap-2 active:scale-[0.98]"
-            >
-              {loading && (
-                <span
-                  className="w-3.5 h-3.5 border-2 rounded-full animate-spin"
-                  style={{ borderColor: 'rgba(255,255,255,0.35)', borderTopColor: 'white' }}
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="ql-label text-xs font-medium" htmlFor="email">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@bank.th"
                 />
-              )}
-              {loading ? 'Signing in…' : isExpired ? 'Sign in and resume' : 'Sign in'}
-            </button>
-          </form>
+              </div>
 
-          <p className="text-center text-xs text-ink-400 mt-6">
-            No account? Contact your administrator.
-          </p>
+              <div className="flex flex-col gap-1.5">
+                <label className="ql-label text-xs font-medium" htmlFor="password">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                />
+              </div>
+
+              {error && (
+                <p
+                  ref={errorRef}
+                  className="text-xs text-danger bg-red-50 border border-red-200 rounded-lg px-3 py-2"
+                >
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading || !email || !password}
+                className="w-full btn-primary py-2.5 mt-1 flex items-center justify-center gap-2 active:scale-[0.98]"
+              >
+                {loading && (
+                  <span
+                    className="w-3.5 h-3.5 border-2 rounded-full animate-spin"
+                    style={{ borderColor: 'rgba(255,255,255,0.35)', borderTopColor: 'white' }}
+                  />
+                )}
+                {loading ? 'Signing in…' : isExpired ? 'Sign in and resume' : 'Sign in'}
+              </button>
+            </form>
+
+            <p className="ql-muted text-center text-xs mt-6">
+              No account? Contact your administrator.
+            </p>
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </>
   )
 }
 
