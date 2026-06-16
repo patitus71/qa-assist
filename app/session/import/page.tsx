@@ -204,16 +204,29 @@ function buildTCs(
   return { standard, e2e, api }
 }
 
+// ─── Raw preview helpers ──────────────────────────────────────────────────────
+
+async function parseRawRows(file: File): Promise<unknown[][]> {
+  const buffer = await file.arrayBuffer()
+  const wb = XLSX.read(buffer, { type: 'array' })
+  const ws = wb.Sheets[wb.SheetNames[0]]
+  return XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '' }).slice(0, 12)
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
+
+type Stage = 'upload' | 'preview' | 'mapping'
 
 export default function ImportPage() {
   const router = useRouter()
   const session = useSession()
 
+  const [stage, setStage] = useState<Stage>('upload')
   const [dragOver, setDragOver] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [parseResult, setParseResult] = useState<ParseResult | null>(null)
+  const [rawRows, setRawRows] = useState<unknown[][]>([])
   const [importMode, setImportMode] = useState<ImportMode>('add')
   const [importing, setImporting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -226,9 +239,12 @@ export default function ImportPage() {
     setLoading(true)
     setError(null)
     setParseResult(null)
+    setStage('upload')
     try {
-      const result = await parseFile(file)
+      const [result, raw] = await Promise.all([parseFile(file), parseRawRows(file)])
       setParseResult(result)
+      setRawRows(raw)
+      setStage('preview')
     } catch {
       setError('Could not read the file — make sure it is a valid Excel or CSV file')
     } finally {
@@ -362,8 +378,50 @@ export default function ImportPage() {
           <p className="text-sm text-danger">{error}</p>
         )}
 
+        {/* Raw preview */}
+        {stage === 'preview' && rawRows.length > 0 && (
+          <div className="card overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-ink-100">
+              <div>
+                <h2 className="text-sm font-semibold text-ink-900">Preview</h2>
+                <p className="text-xs text-ink-400 mt-0.5">First {rawRows.length} rows of your file</p>
+              </div>
+              <button
+                className="btn-primary text-sm"
+                onClick={() => setStage('mapping')}
+              >
+                Continue to Column Mapping →
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <tbody>
+                  {rawRows.map((row, ri) => {
+                    const cells = row as string[]
+                    const bg = ri === 0 ? '#0055A4' : ri === 1 ? '#D9D9D9' : ri % 2 === 0 ? '#F4F4F6' : '#FFFFFF'
+                    const color = ri === 0 ? '#FFFFFF' : '#1A1A1C'
+                    const fw = ri <= 1 ? 600 : 400
+                    return (
+                      <tr key={ri}>
+                        {cells.map((cell, ci) => (
+                          <td
+                            key={ci}
+                            style={{ background: bg, color, fontWeight: fw, padding: '6px 10px', border: '1px solid #E8E8EF', whiteSpace: 'nowrap', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                          >
+                            {String(cell ?? '')}
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* Column mapping */}
-        {parseResult && (
+        {stage === 'mapping' && parseResult && (
           <div className="card p-5 space-y-4">
             <div>
               <h2 className="text-sm font-semibold text-ink-900 dark:text-ink-100">Column mapping</h2>
@@ -438,7 +496,7 @@ export default function ImportPage() {
         )}
 
         {/* Import mode */}
-        {parseResult && (
+        {stage === 'mapping' && parseResult && (
           <div className="card p-5 space-y-3">
             <h2 className="text-sm font-semibold text-ink-900 dark:text-ink-100">Import mode</h2>
 
@@ -487,7 +545,7 @@ export default function ImportPage() {
         )}
 
         {/* Actions */}
-        {parseResult && (
+        {stage === 'mapping' && parseResult && (
           <div className="flex gap-3 justify-end pb-8">
             <button
               className="btn-ghost"

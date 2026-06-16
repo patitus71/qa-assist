@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from '@/lib/session-context'
 import { importTCM, type TCMImportResult } from '@/lib/import-tcm'
+import * as XLSX from 'xlsx-js-style'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -53,17 +54,22 @@ function IconCheck() {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+type Stage = 'upload' | 'preview' | 'result'
+
 export default function ImportTCMPage() {
   const router = useRouter()
   const session = useSession()
 
+  const [stage, setStage] = useState<Stage>('upload')
   const [isDragging, setIsDragging] = useState(false)
   const [parsing, setParsing] = useState(false)
   const [result, setResult] = useState<TCMImportResult | null>(null)
   const [parseError, setParseError] = useState('')
+  const [rawRows, setRawRows] = useState<unknown[][]>([])
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  async function parseFile(file: File) {
+  async function handleFile(file: File) {
     if (!file.name.match(/\.(xlsx|xls)$/i)) {
       setParseError('Only .xlsx and .xls files are supported.')
       return
@@ -73,15 +79,34 @@ export default function ImportTCMPage() {
       return
     }
 
+    setParseError('')
+    setResult(null)
+    setPendingFile(file)
+
+    try {
+      const buffer = await file.arrayBuffer()
+      const wb = XLSX.read(buffer, { type: 'array' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '' }).slice(0, 12)
+      setRawRows(rows)
+      setStage('preview')
+    } catch {
+      setParseError('Could not read the file.')
+    }
+  }
+
+  async function parseTCM() {
+    if (!pendingFile) return
     setParsing(true)
     setParseError('')
     setResult(null)
-
     try {
-      const res = await importTCM(file)
+      const res = await importTCM(pendingFile)
       setResult(res)
+      setStage('result')
     } catch (err) {
       setParseError(err instanceof Error ? err.message : 'Failed to parse file.')
+      setStage('preview')
     } finally {
       setParsing(false)
     }
@@ -91,7 +116,7 @@ export default function ImportTCMPage() {
     e.preventDefault()
     setIsDragging(false)
     const file = e.dataTransfer.files[0]
-    if (file) parseFile(file)
+    if (file) handleFile(file)
   }, [])
 
   const onDragOver = useCallback((e: React.DragEvent) => {
@@ -103,7 +128,7 @@ export default function ImportTCMPage() {
 
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (file) parseFile(file)
+    if (file) handleFile(file)
     e.target.value = ''
   }
 
@@ -176,8 +201,51 @@ export default function ImportTCMPage() {
         </div>
       )}
 
+      {/* Raw preview */}
+      {stage === 'preview' && rawRows.length > 0 && (
+        <div className="card overflow-hidden mb-4">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-ink-100">
+            <div>
+              <h2 className="text-sm font-semibold text-ink-900">File Preview</h2>
+              <p className="text-xs text-ink-400 mt-0.5">First {rawRows.length} rows — verify structure before parsing</p>
+            </div>
+            <button
+              className="btn-primary text-sm"
+              onClick={parseTCM}
+              disabled={parsing}
+            >
+              {parsing ? 'Parsing…' : 'Parse as TCM →'}
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <tbody>
+                {rawRows.map((row, ri) => {
+                  const cells = row as string[]
+                  const bg = ri === 0 ? '#0055A4' : ri === 1 ? '#D9D9D9' : ri % 2 === 0 ? '#F4F4F6' : '#FFFFFF'
+                  const color = ri === 0 ? '#FFFFFF' : '#1A1A1C'
+                  const fw = ri <= 1 ? 600 : 400
+                  return (
+                    <tr key={ri}>
+                      {cells.map((cell, ci) => (
+                        <td
+                          key={ci}
+                          style={{ background: bg, color, fontWeight: fw, padding: '6px 10px', border: '1px solid #E8E8EF', whiteSpace: 'nowrap', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                        >
+                          {String(cell ?? '')}
+                        </td>
+                      ))}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Parse result preview */}
-      {result && (
+      {stage === 'result' && result && (
         <div className="card p-5 mb-4 space-y-4">
           {/* File meta */}
           <div>
@@ -259,15 +327,15 @@ export default function ImportTCMPage() {
 
       {/* Actions */}
       <div className="flex gap-3">
-        {hasData && (
+        {stage === 'result' && hasData && (
           <button onClick={handleImport} className="btn-primary">
             Import to TCM Editor →
           </button>
         )}
         <button
-          onClick={() => { setResult(null); setParseError('') }}
+          onClick={() => { setResult(null); setParseError(''); setRawRows([]); setPendingFile(null); setStage('upload') }}
           className="btn-ghost"
-          style={{ display: result || parseError ? undefined : 'none' }}
+          style={{ display: stage !== 'upload' || parseError ? undefined : 'none' }}
         >
           Clear
         </button>
