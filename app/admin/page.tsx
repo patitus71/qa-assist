@@ -429,7 +429,7 @@ export default function AdminPage() {
   const visibleNav = navItems.filter(item => !item.adminOnly || isAdmin)
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 p-3 md:p-4 lg:p-6 xl:p-8 bg-[#F4F4F6] dark:bg-ink-900">
+    <div className="flex-1 flex flex-col min-w-0 p-3 md:p-4 lg:p-6 xl:p-8">
 
       {/* Tab bar */}
       <div className="flex gap-1 mb-6 bg-white dark:bg-ink-800 border border-ink-200 dark:border-ink-700 rounded-lg p-1 w-fit max-w-full overflow-x-auto">

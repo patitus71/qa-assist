@@ -442,7 +442,7 @@ export default function DashboardPage() {
   const role = user?.role as Role | undefined
 
   return (
-    <div className="flex-1 p-3 md:p-4 lg:p-6 xl:p-8 bg-[#F4F4F6] dark:bg-ink-900">
+    <div className="flex-1 p-3 md:p-4 lg:p-6 xl:p-8">
       {role === 'QA_LEAD' && <QALeadDashboard name={user?.name ?? ''} />}
       {role === 'QA_ENGINEER' && <QAEngineerDashboard name={user?.name ?? ''} />}
       {role === 'MANAGER' && <ManagerDashboard name={user?.name ?? ''} />}
