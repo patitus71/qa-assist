@@ -84,6 +84,17 @@ body {
     @apply font-mono text-xs px-2 py-0.5 rounded bg-ink-100 text-ink-600
            dark:bg-ink-700 dark:text-ink-300;
   }
+
+  .drop-zone-glass {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.5);
+  }
+  .drop-zone-glass:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.8);
+  }
 }
 
 /* ── Global dark mode overrides ─────────────────────────────────────────────
@@ -143,17 +154,24 @@ body {
 .dark .group:hover .group-hover\:text-accent { color: #93b4f8 !important; }
 
 /* ── Inputs, textareas, selects ─────────────────────────────────────────── */
-.dark input:not([type="checkbox"]):not([type="radio"]),
-.dark textarea,
-.dark select {
+input:not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
   background: rgba(255, 255, 255, 0.06) !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
   color: rgba(255, 255, 255, 0.9) !important;
 }
 
-.dark input::placeholder,
-.dark textarea::placeholder {
+input::placeholder,
+textarea::placeholder {
   color: rgba(255, 255, 255, 0.3) !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  outline: none !important;
 }
 
 /* ── Ring / focus ────────────────────────────────────────────────────────── */

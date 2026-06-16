@@ -114,19 +114,31 @@ function GenCard({ icon, title, coverage, description, isGenerating, error, onGe
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function convertExistingToRows(groups: TCMGroup[], existingTCs: ParsedTCM['existingTCs']): TCMRow[] {
-  return existingTCs.map((tc, i) => ({
-    id: `TCM-exist-${String(i + 1).padStart(2, '0')}`,
-    scenario: tc.title,
-    checks: Object.fromEntries(
-      groups.map(g => [
-        g.name,
-        Object.fromEntries(g.values.map(v => [v, tc.combinations[g.name]?.includes(v) ?? false])),
-      ])
-    ),
-    posNeg: 'Positive' as const,
-    priority: 'Med' as TCPriority,
-    isNew: false,
-  }))
+  return existingTCs.map((tc, i) => {
+    if (tc.sectionLabel) {
+      return {
+        id: `TCM-section-${i}`,
+        scenario: '',
+        checks: {},
+        posNeg: 'Positive' as const,
+        priority: 'Med' as TCPriority,
+        sectionLabel: tc.sectionLabel,
+      }
+    }
+    return {
+      id: `TCM-exist-${String(i + 1).padStart(2, '0')}`,
+      scenario: tc.title,
+      checks: Object.fromEntries(
+        groups.map(g => [
+          g.name,
+          Object.fromEntries(g.values.map(v => [v, tc.combinations[g.name]?.includes(v) ?? false])),
+        ])
+      ),
+      posNeg: 'Positive' as const,
+      priority: 'Med' as TCPriority,
+      isNew: false,
+    }
+  })
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -228,7 +240,7 @@ export default function GeneratePage() {
       const { parseTCM } = await import('@/lib/parse-tcm')
       const parsed = await parseTCM(file)
       if (parsed.groups.length === 0 && parsed.existingTCs.length === 0) {
-        setTcmError('Could not parse TCM — check the file format (row 2 = groups, row 3 = values)')
+        setTcmError('Could not parse TCM — no condition groups or TC rows found. Check the file has a "No." column and data rows.')
         return
       }
       setTcmData(parsed)
@@ -263,7 +275,7 @@ export default function GeneratePage() {
           ...(tcmData ? {
             existingTCM: {
               groups: tcmData.groups.map(g => ({ name: g.name, values: g.values })),
-              existingTCs: tcmData.existingTCs.map(tc => ({
+              existingTCs: tcmData.existingTCs.filter(tc => !tc.sectionLabel).map(tc => ({
                 title: tc.title,
                 combinations: tc.combinations,
               })),
@@ -340,7 +352,7 @@ export default function GeneratePage() {
             )}
             <button
               onClick={() => setShowSwagger(s => !s)}
-              className={`text-xs flex items-center gap-1 transition-colors ${showSwagger ? 'text-accent' : 'text-ink-400 hover:text-ink-700'}`}
+              className={`text-xs flex items-center gap-1 transition-colors ${showSwagger ? 'text-accent' : 'text-ink-500 hover:text-ink-700'}`}
             >
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M8 3v10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
               Swagger / OpenAPI
@@ -353,7 +365,7 @@ export default function GeneratePage() {
           onChange={e => setLocalReq(e.target.value)}
           placeholder="Paste your requirement, user story, or acceptance criteria here…"
           rows={5}
-          className="w-full text-sm border border-ink-200 rounded-lg px-3 py-2.5 bg-white resize-y focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent placeholder:text-ink-300"
+          className="w-full text-sm rounded-lg px-3 py-2.5 resize-y focus:outline-none placeholder:text-ink-300"
         />
 
         {localImages.length > 0 && (
@@ -372,13 +384,13 @@ export default function GeneratePage() {
         )}
 
         <div
-          className={`mt-3 border-2 border-dashed rounded-lg px-4 py-2 text-center text-xs cursor-pointer transition-colors ${imgDragOver ? 'border-accent bg-accent/5' : 'border-ink-200 hover:border-ink-300'}`}
+          className={`mt-3 border-2 border-dashed rounded-lg px-4 py-2 text-center text-xs cursor-pointer transition-colors ${imgDragOver ? 'border-accent bg-accent/5' : 'drop-zone-glass'}`}
           onDragOver={e => { e.preventDefault(); setImgDragOver(true) }}
           onDragLeave={() => setImgDragOver(false)}
           onDrop={async e => { e.preventDefault(); setImgDragOver(false); await addImages(e.dataTransfer.files) }}
           onClick={() => imgInputRef.current?.click()}
         >
-          <span className="text-ink-400">Drop Figma screenshots here · Ctrl+V to paste · <span className="underline">Browse</span></span>
+          <span>Drop Figma screenshots here · Ctrl+V to paste · <span className="underline">Browse</span></span>
           <input ref={imgInputRef} type="file" accept="image/*" multiple className="hidden"
             onChange={e => e.target.files && addImages(e.target.files)} />
         </div>
@@ -392,7 +404,7 @@ export default function GeneratePage() {
                 onChange={e => setSwaggerUrl(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && loadSwagger()}
                 placeholder="https://api.example.com/swagger.json"
-                className="flex-1 font-mono text-sm border border-ink-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-accent"
+                className="flex-1 font-mono text-sm rounded-lg px-3 py-2 focus:outline-none"
               />
               <button onClick={loadSwagger} disabled={!swaggerUrl.trim() || swaggerLoading} className="btn-ghost disabled:opacity-40">
                 {swaggerLoading ? 'Loading…' : 'Load spec'}
@@ -439,7 +451,7 @@ export default function GeneratePage() {
           {!tcmData ? (
             <>
               <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${tcmDragOver ? 'border-accent bg-accent/5' : 'border-ink-200 hover:border-ink-300'}`}
+                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${tcmDragOver ? 'border-accent bg-accent/5' : 'drop-zone-glass'}`}
                 onDragOver={e => { e.preventDefault(); setTcmDragOver(true) }}
                 onDragLeave={() => setTcmDragOver(false)}
                 onDrop={async e => {
@@ -459,7 +471,7 @@ export default function GeneratePage() {
                     <IconSpinner /> Parsing TCM…
                   </span>
                 ) : (
-                  <span className="text-sm text-ink-400">
+                  <span className="text-sm">
                     Drop your <span className="font-mono font-medium">.xlsx</span> TCM here · <span className="underline">Browse</span>
                   </span>
                 )}

@@ -114,7 +114,7 @@ export default function TimesheetPage() {
           </div>
 
           {/* Filter tabs */}
-          <div className="flex gap-1 bg-white dark:bg-ink-800 border border-ink-200 dark:border-ink-700 rounded-lg p-1 w-fit">
+          <div className="flex gap-1 rounded-lg p-1 w-fit" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)' }}>
             {FILTERS.map(f => (
               <button
                 key={f.id}
@@ -132,24 +132,24 @@ export default function TimesheetPage() {
 
           {/* Summary chips */}
           <div className="flex gap-3">
-            <div className="bg-white dark:bg-ink-800 rounded-[10px] border border-ink-200 dark:border-ink-700 px-4 py-3 min-w-[120px]">
+            <div className="rounded-[10px] px-4 py-3 min-w-[120px]" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <p className="text-xs text-ink-500 mb-0.5">Total time</p>
               <p className="font-mono text-xl font-bold text-ink-900 dark:text-ink-100">{formatHM(totalMins)}</p>
             </div>
-            <div className="bg-white dark:bg-ink-800 rounded-[10px] border border-ink-200 dark:border-ink-700 px-4 py-3 min-w-[120px]">
+            <div className="rounded-[10px] px-4 py-3 min-w-[120px]" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <p className="text-xs text-ink-500 mb-0.5">Tickets</p>
               <p className="font-mono text-xl font-bold text-ink-900 dark:text-ink-100">
                 {new Set(entries.map(e => e.ticketKey)).size}
               </p>
             </div>
-            <div className="bg-white dark:bg-ink-800 rounded-[10px] border border-ink-200 dark:border-ink-700 px-4 py-3 min-w-[120px]">
+            <div className="rounded-[10px] px-4 py-3 min-w-[120px]" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <p className="text-xs text-ink-500 mb-0.5">Sessions</p>
               <p className="font-mono text-xl font-bold text-ink-900 dark:text-ink-100">{entries.length}</p>
             </div>
           </div>
 
           {/* Table */}
-          <div className="bg-white dark:bg-ink-800 rounded-[12px] border border-ink-200 dark:border-ink-700 overflow-hidden">
+          <div className="rounded-[12px] overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)' }}>
             {loading ? (
               <div className="p-10 text-center text-sm text-ink-400">Loading…</div>
             ) : entries.length === 0 ? (
@@ -158,7 +158,7 @@ export default function TimesheetPage() {
               <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-ink-100 dark:border-ink-700">
+                  <tr className="border-b border-ink-100 dark:border-ink-700" style={{ background: 'rgba(255,255,255,0.08)' }}>
                     {['Date', 'Ticket', 'Start', 'End', 'Duration', 'Status'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-medium text-ink-500">{h}</th>
                     ))}
@@ -197,7 +197,7 @@ export default function TimesheetPage() {
                     )
                   })}
                   {/* Summary row */}
-                  <tr className="bg-ink-50 dark:bg-ink-700/50 border-t border-ink-200 dark:border-ink-600">
+                  <tr className="border-t border-ink-200 dark:border-ink-600" style={{ background: 'rgba(255,255,255,0.08)' }}>
                     <td colSpan={4} className="px-4 py-2.5 text-xs font-medium text-ink-600 dark:text-ink-300">
                       Total ({filter})
                     </td>

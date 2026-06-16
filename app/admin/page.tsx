@@ -113,8 +113,8 @@ function AddUserModal({
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-[12px] border border-ink-200 w-full max-w-md p-6"
-        style={{ boxShadow: '0 8px 32px rgba(13,13,14,0.12)' }}
+        className="rounded-[12px] w-full max-w-md p-6"
+        style={{ background: 'rgba(10,10,12,0.88)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
@@ -221,8 +221,8 @@ function AddSquadModal({ onClose, onCreated }: { onClose: () => void; onCreated:
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-[12px] border border-ink-200 w-full max-w-sm p-6"
-        style={{ boxShadow: '0 8px 32px rgba(13,13,14,0.12)' }}
+        className="rounded-[12px] w-full max-w-sm p-6"
+        style={{ background: 'rgba(10,10,12,0.88)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
@@ -432,7 +432,7 @@ export default function AdminPage() {
     <div className="flex-1 flex flex-col min-w-0 p-3 md:p-4 lg:p-6 xl:p-8">
 
       {/* Tab bar */}
-      <div className="flex gap-1 mb-6 bg-white dark:bg-ink-800 border border-ink-200 dark:border-ink-700 rounded-lg p-1 w-fit max-w-full overflow-x-auto">
+      <div className="flex gap-1 mb-6 rounded-lg p-1 w-fit max-w-full overflow-x-auto" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)' }}>
         {visibleNav.map(item => (
           <button
             key={item.id}
@@ -468,14 +468,14 @@ export default function AdminPage() {
               </button>
             </div>
 
-            <div className="bg-white rounded-[12px] border border-ink-200 overflow-hidden">
+            <div className="rounded-[12px] overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)' }}>
               {loadingUsers ? (
                 <div className="p-8 text-center text-sm text-ink-400">Loading…</div>
               ) : (
                 <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-ink-100">
+                    <tr className="border-b border-ink-100" style={{ background: 'rgba(255,255,255,0.08)' }}>
                       {['Name', 'Email', 'Role', 'Squad', 'Status', ''].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-medium text-ink-500">{h}</th>
                       ))}
@@ -592,7 +592,7 @@ export default function AdminPage() {
               </button>
             </div>
 
-            <div className="bg-white rounded-[12px] border border-ink-200 overflow-hidden">
+            <div className="rounded-[12px] overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)' }}>
               {loadingSquads ? (
                 <div className="p-8 text-center text-sm text-ink-400">Loading…</div>
               ) : squads.length === 0 ? (
@@ -601,7 +601,7 @@ export default function AdminPage() {
                 <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-ink-100">
+                    <tr className="border-b border-ink-100" style={{ background: 'rgba(255,255,255,0.08)' }}>
                       {['Name', 'Members', 'Actions'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-medium text-ink-500">{h}</th>
                       ))}
@@ -686,14 +686,14 @@ export default function AdminPage() {
               <h1 className="text-lg font-semibold text-ink-900">Audit log</h1>
               <p className="text-xs text-ink-500 mt-0.5">All administrative actions on user accounts.</p>
             </div>
-            <div className="bg-white rounded-[12px] border border-ink-200 overflow-hidden">
+            <div className="rounded-[12px] overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)' }}>
               {auditLogs.length === 0 ? (
                 <div className="p-8 text-center text-sm text-ink-400">No audit log entries yet.</div>
               ) : (
                 <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-ink-100">
+                    <tr className="border-b border-ink-100" style={{ background: 'rgba(255,255,255,0.08)' }}>
                       {['Date', 'Action', 'Details'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-medium text-ink-500">{h}</th>
                       ))}
@@ -732,11 +732,11 @@ export default function AdminPage() {
             {loadingPerms ? (
               <div className="p-8 text-center text-sm text-ink-400">Loading…</div>
             ) : (
-              <div className="bg-white rounded-[12px] border border-ink-200 overflow-hidden">
+              <div className="rounded-[12px] overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-ink-100">
+                    <tr className="border-b border-ink-100" style={{ background: 'rgba(255,255,255,0.08)' }}>
                       <th className="px-4 py-3 text-left text-xs font-medium text-ink-500 w-40">Menu item</th>
                       {/* ADMIN column — read-only, always all */}
                       <th className="px-4 py-3 text-center text-xs font-medium text-ink-500 w-28">
@@ -820,7 +820,7 @@ export default function AdminPage() {
         {tab === 'settings' && isAdmin && (
           <div className="w-full">
             <h1 className="text-lg font-semibold text-ink-900 mb-4">Settings</h1>
-            <div className="bg-white rounded-[12px] border border-ink-200 p-6 text-sm text-ink-500">
+            <div className="rounded-[12px] p-6 text-sm text-ink-500" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)' }}>
               Application settings will be available in a future release.
             </div>
           </div>
