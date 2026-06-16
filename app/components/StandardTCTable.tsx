@@ -95,11 +95,17 @@ export function StandardTCTable({ tcs, onChange }: Props) {
           {field === 'priority' ? (
             <PriorityBadge p={tc.priority} />
           ) : field === 'positiveNegative' ? (
-            <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap ${
-              tc.positiveNegative === 'Negative'
-                ? 'bg-red-50 text-red-700 border-red-200'
-                : 'bg-green-50 text-green-700 border-green-200'
-            }`}>
+            <span style={{
+              display: 'inline-block',
+              borderRadius: 100,
+              padding: '2px 10px',
+              fontSize: 11,
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+              background: tc.positiveNegative === 'Negative' ? '#FEF2F2' : '#ECFDF5',
+              color: tc.positiveNegative === 'Negative' ? '#C0392B' : '#0B7A51',
+              border: `1px solid ${tc.positiveNegative === 'Negative' ? '#FECACA' : '#A7F3D0'}`,
+            }}>
               {tc.positiveNegative ?? 'Positive'}
             </span>
           ) : (
@@ -123,14 +129,27 @@ export function StandardTCTable({ tcs, onChange }: Props) {
     }
 
     if (field === 'positiveNegative') {
+      const cur = tc.positiveNegative ?? 'Positive'
+      const next = cur === 'Positive' ? 'Negative' : 'Positive'
       return (
-        <select autoFocus value={tc.positiveNegative ?? 'Positive'}
-          onChange={e => saveCell(tc.id, 'positiveNegative', e.target.value)}
+        <button
+          type="button"
+          autoFocus
+          onClick={() => { saveCell(tc.id, 'positiveNegative', next); setEditCell(null) }}
           onBlur={() => setEditCell(null)}
-          className="text-xs border border-accent rounded px-1 py-0.5 bg-white focus:outline-none">
-          <option value="Positive">Positive</option>
-          <option value="Negative">Negative</option>
-        </select>
+          style={{
+            borderRadius: 100,
+            padding: '2px 10px',
+            fontSize: 11,
+            fontWeight: 500,
+            background: cur === 'Negative' ? '#FEF2F2' : '#ECFDF5',
+            color: cur === 'Negative' ? '#C0392B' : '#0B7A51',
+            border: `1px solid ${cur === 'Negative' ? '#FECACA' : '#A7F3D0'}`,
+            cursor: 'pointer',
+          }}
+        >
+          {cur} → click to toggle
+        </button>
       )
     }
 
@@ -406,11 +425,23 @@ export function StandardTCTable({ tcs, onChange }: Props) {
                   </select>
                 </td>
                 <td className="px-3 py-2 w-20">
-                  <select value={newRow.positiveNegative} onChange={e => setNewRow(r => ({ ...r, positiveNegative: e.target.value as 'Positive' | 'Negative' }))}
-                    className="text-xs border border-ink-200 rounded px-1 py-0.5 bg-white focus:outline-none">
-                    <option value="Positive">Positive</option>
-                    <option value="Negative">Negative</option>
-                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setNewRow(r => ({ ...r, positiveNegative: r.positiveNegative === 'Positive' ? 'Negative' : 'Positive' }))}
+                    style={{
+                      borderRadius: 100,
+                      padding: '2px 10px',
+                      fontSize: 11,
+                      fontWeight: 500,
+                      background: newRow.positiveNegative === 'Negative' ? '#FEF2F2' : '#ECFDF5',
+                      color: newRow.positiveNegative === 'Negative' ? '#C0392B' : '#0B7A51',
+                      border: `1px solid ${newRow.positiveNegative === 'Negative' ? '#FECACA' : '#A7F3D0'}`,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {newRow.positiveNegative}
+                  </button>
                 </td>
                 <td className="px-3 py-2 min-w-[120px]">
                   <input value={newRow.testData} onChange={e => setNewRow(r => ({ ...r, testData: e.target.value }))}
