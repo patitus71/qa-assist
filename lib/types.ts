@@ -103,14 +103,23 @@ export interface TCMRow {
   checks: Record<string, Record<string, boolean>>  // groupName → value → checked
   posNeg: 'Positive' | 'Negative'
   priority: TCPriority
-  isNew?: boolean     // true = AI-suggested (only when existing TCM was imported)
-  rejected?: boolean  // true = user rejected in TCM editor
+  isNew?: boolean       // true = AI-suggested (only when existing TCM was imported)
+  rejected?: boolean    // true = user rejected in TCM editor
+  sectionLabel?: string // if set, this row is a section divider (not a real TC row)
+}
+
+export interface TCMImportMeta {
+  fileName: string
+  sheetName: string
+  headerRows: number
+  totalColumns: number
 }
 
 export interface TCMState {
   groups: TCMGroup[]
   rows: TCMRow[]
   type: 'standard' | 'e2e' | 'api'
+  importMeta?: TCMImportMeta
 }
 
 export interface JiraIssue {

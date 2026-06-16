@@ -205,6 +205,12 @@ export default function TCMEditorPage() {
   const [toast, setToast] = useState('')
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const [generatingMissing, setGeneratingMissing] = useState(false)
+  const [generateMissingError, setGenerateMissingError] = useState('')
+  const [generateReq, setGenerateReq] = useState(() => session.requirement || '')
+  const [showReqInput, setShowReqInput] = useState(false)
+
+  const importMeta = tcm?.importMeta
   const type = tcm?.type ?? 'standard'
   const hasNewRows = rows.some(r => r.isNew)
   const activeRows = rows.filter(r => !r.rejected)
@@ -326,8 +332,7 @@ export default function TCMEditorPage() {
     setGroups(newGroups)
     setRows(updatedRows)
     setEditingGroupsModal(false)
-    // Persist to session context
-    session.setTcm({ groups: newGroups, rows: updatedRows, type })
+    session.setTcm({ groups: newGroups, rows: updatedRows, type, ...(importMeta ? { importMeta } : {}) })
   }
 
   // ── Convert to TCs ─────────────────────────────────────────────────────────
@@ -339,8 +344,7 @@ export default function TCMEditorPage() {
     setConverting(true)
     setConvertError('')
 
-    // Save current TCM state back to session before converting
-    session.setTcm({ groups, rows, type })
+    session.setTcm({ groups, rows, type, ...(importMeta ? { importMeta } : {}) })
 
     try {
       const res = await fetch('/api/convert-tcm-to-tc', {
@@ -394,6 +398,55 @@ export default function TCMEditorPage() {
     }
   }
 
+  // ── Generate missing TCs ──────────────────────────────────────────────────
+
+  async function generateMissingTCs() {
+    const reqText = generateReq.trim()
+    if (!reqText) { setShowReqInput(true); return }
+
+    setGeneratingMissing(true)
+    setGenerateMissingError('')
+    setShowReqInput(false)
+
+    const existingTCs = rows
+      .filter(r => !r.sectionLabel)
+      .map(r => ({
+        title: r.scenario,
+        combinations: Object.fromEntries(
+          Object.entries(r.checks).map(([g, vals]) => [
+            g,
+            Object.entries(vals).filter(([, checked]) => checked).map(([v]) => v),
+          ])
+        ),
+      }))
+
+    try {
+      const res = await fetch('/api/generate-tcm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type,
+          requirement: reqText,
+          existingTCM: { groups: groups.map(g => ({ name: g.name, values: g.values })), existingTCs },
+        }),
+      })
+      const data = await res.json() as { rows?: TCMRow[]; groups?: TCMGroup[]; error?: string }
+      if (!res.ok) { setGenerateMissingError(data.error ?? 'Generation failed'); return }
+
+      const newRows: TCMRow[] = (data.rows ?? []).map(r => ({ ...r, isNew: true }))
+      if (newRows.length === 0) { setGenerateMissingError('No missing scenarios found'); return }
+
+      const merged = [...rows, ...newRows]
+      setRows(merged)
+      session.setTcm({ groups, rows: merged, type, ...(importMeta ? { importMeta } : {}) })
+      showToast(`${newRows.length} missing scenario${newRows.length > 1 ? 's' : ''} suggested`)
+    } catch {
+      setGenerateMissingError('Network error — check connection')
+    } finally {
+      setGeneratingMissing(false)
+    }
+  }
+
   // ── Empty state ────────────────────────────────────────────────────────────
 
   if (!tcm) {
@@ -421,6 +474,17 @@ export default function TCMEditorPage() {
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-ink-900 text-white text-sm px-4 py-2.5 rounded-full shadow-lg pointer-events-none">
           {toast}
+        </div>
+      )}
+
+      {/* Import metadata banner */}
+      {importMeta && (
+        <div className="mb-4 px-3 py-2.5 rounded-lg bg-ink-50 border border-ink-200 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-500">
+          <span className="font-medium text-ink-700">Imported file</span>
+          <span className="font-mono">{importMeta.fileName}</span>
+          <span>Sheet: <span className="font-medium text-ink-700">{importMeta.sheetName}</span></span>
+          <span>{importMeta.headerRows} header row{importMeta.headerRows !== 1 ? 's' : ''}</span>
+          <span>{importMeta.totalColumns} columns</span>
         </div>
       )}
 
@@ -491,8 +555,26 @@ export default function TCMEditorPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, rowIdx) => {
-                const isExisting = !row.isNew
+              {(() => {
+                let tcRowNum = 0
+                const totalCheckCols = 3 + groups.reduce((s, g) => s + Math.max(g.values.length, 1), 0)
+                return rows.map((row, rowIdx) => {
+                const isSection = !!row.sectionLabel
+
+                if (isSection) {
+                  return (
+                    <tr key={row.id} className="bg-ink-50/60 border-b border-ink-200">
+                      <td
+                        colSpan={totalCheckCols}
+                        className="px-4 py-1.5 text-xs font-semibold text-ink-500 uppercase tracking-widest"
+                      >
+                        {row.sectionLabel}
+                      </td>
+                    </tr>
+                  )
+                }
+
+                const displayNum = ++tcRowNum
                 const isNew = row.isNew === true
                 const isRejected = row.rejected === true
 
@@ -509,11 +591,11 @@ export default function TCMEditorPage() {
                   <tr
                     key={row.id}
                     style={rowStyle}
-                    className={`border-b border-ink-100 transition-colors hover:bg-ink-50/50 ${rowBg} ${isExisting ? 'bg-white' : ''}`}
+                    className={`border-b border-ink-100 transition-colors hover:bg-ink-50/50 ${rowBg}`}
                   >
                     {/* No. */}
                     <td className="px-3 py-2 text-ink-400 font-mono border-r border-ink-100 align-middle whitespace-nowrap">
-                      {rowIdx + 1}
+                      {displayNum}
                     </td>
 
                     {/* Scenario */}
@@ -649,7 +731,8 @@ export default function TCMEditorPage() {
                     </td>
                   </tr>
                 )
-              })}
+              })
+              })()}
 
               {rows.length === 0 && (
                 <tr>
@@ -657,7 +740,7 @@ export default function TCMEditorPage() {
                     colSpan={3 + groups.reduce((s, g) => s + Math.max(g.values.length, 1), 0)}
                     className="px-4 py-8 text-center text-ink-400 text-sm"
                   >
-                    No rows yet. Click &ldquo;+ Add Row&rdquo; below.
+                    No rows yet. Click &ldquo;+ Add Row&rdquo; below or import a TCM file.
                   </td>
                 </tr>
               )}
@@ -666,15 +749,54 @@ export default function TCMEditorPage() {
         </div>
 
         {/* Table footer */}
-        <div className="px-4 py-3 border-t border-ink-100 flex items-center gap-3">
+        <div className="px-4 py-3 border-t border-ink-100 flex items-center gap-3 flex-wrap">
           <button onClick={addRow} className="btn-ghost text-xs flex items-center gap-1.5">
             <IconPlus /> Add Row
           </button>
           <button onClick={() => setEditingGroupsModal(true)} className="btn-ghost text-xs flex items-center gap-1.5">
             <IconEdit /> Edit Groups
           </button>
-          <span className="ml-auto text-xs text-ink-400 font-mono">{activeRows.length} / {rows.length} rows active</span>
+          <button
+            onClick={generateMissingTCs}
+            disabled={generatingMissing}
+            className="btn-ghost text-xs flex items-center gap-1.5 disabled:opacity-50"
+          >
+            {generatingMissing ? <IconSpinner /> : <span>✦</span>} Generate missing TCs
+          </button>
+          <span className="ml-auto text-xs text-ink-400 font-mono">{activeRows.filter(r => !r.sectionLabel).length} / {rows.filter(r => !r.sectionLabel).length} rows active</span>
         </div>
+
+        {/* Inline requirement input for "generate missing TCs" */}
+        {showReqInput && (
+          <div className="px-4 pb-3 border-t border-ink-100 bg-ink-50/30">
+            <p className="text-xs text-ink-500 mt-3 mb-1.5">Enter the requirement for gap analysis:</p>
+            <div className="flex gap-2">
+              <textarea
+                value={generateReq}
+                onChange={e => setGenerateReq(e.target.value)}
+                rows={2}
+                placeholder="Describe the feature or requirement to find missing test scenarios…"
+                className="flex-1 text-xs border border-ink-200 rounded px-2 py-1.5 resize-none focus:outline-none focus:border-accent"
+              />
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => { if (generateReq.trim()) generateMissingTCs() }}
+                  disabled={!generateReq.trim()}
+                  className="btn-primary text-xs disabled:opacity-40"
+                >
+                  Go
+                </button>
+                <button onClick={() => setShowReqInput(false)} className="btn-ghost text-xs">Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {generateMissingError && (
+          <div className="px-4 pb-3">
+            <p className="text-xs text-danger">{generateMissingError}</p>
+          </div>
+        )}
       </div>
 
       {/* ── Convert strip ─────────────────────────────────────────────────── */}
