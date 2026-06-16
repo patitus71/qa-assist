@@ -1,9 +1,10 @@
 // app/session/tcm-editor/page.tsx
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from '@/lib/session-context'
+import { downloadTCMXlsx } from '@/lib/tcm-exporter'
 import type { TCMGroup, TCMRow, TCPriority, StandardTC, E2ETC, APITC } from '@/lib/types'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -31,6 +32,12 @@ function IconPlus() {
 }
 function IconEdit() {
   return <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 10.5L3.5 10l5.5-5.5-1.5-1.5L2 8.5v2zM8.5 2l1.5 1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+}
+function IconChevron({ open }: { open: boolean }) {
+  return <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }}><path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+}
+function IconDownload() {
+  return <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 2v7M3.5 7l3 3 3-3M2 11h9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -209,6 +216,7 @@ export default function TCMEditorPage() {
   const [generateMissingError, setGenerateMissingError] = useState('')
   const [generateReq, setGenerateReq] = useState(() => session.requirement || '')
   const [showReqInput, setShowReqInput] = useState(false)
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
   const importMeta = tcm?.importMeta
   const type = tcm?.type ?? 'standard'
@@ -305,6 +313,21 @@ export default function TCMEditorPage() {
 
   function rejectAllNew() {
     setRows(prev => prev.map(r => r.isNew ? { ...r, rejected: true } : r))
+  }
+
+  function acceptHighPriorityOnly() {
+    setRows(prev => prev.map(r => {
+      if (!r.isNew) return r
+      return r.priority === 'High' ? { ...r, rejected: false } : { ...r, rejected: true }
+    }))
+  }
+
+  function toggleExpand(rowId: string) {
+    setExpandedRows(prev => {
+      const next = new Set(prev)
+      next.has(rowId) ? next.delete(rowId) : next.add(rowId)
+      return next
+    })
   }
 
   // ── Group editing ──────────────────────────────────────────────────────────
@@ -421,16 +444,18 @@ export default function TCMEditorPage() {
       }))
 
     try {
-      const res = await fetch('/api/generate-tcm', {
+      const res = await fetch('/api/generate-from-tcm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type,
           requirement: reqText,
-          existingTCM: { groups: groups.map(g => ({ name: g.name, values: g.values })), existingTCs },
+          tcm: {
+            groups: groups.map(g => ({ name: g.name, values: g.values })),
+            existingTCs,
+          },
         }),
       })
-      const data = await res.json() as { rows?: TCMRow[]; groups?: TCMGroup[]; error?: string }
+      const data = await res.json() as { rows?: TCMRow[]; error?: string }
       if (!res.ok) { setGenerateMissingError(data.error ?? 'Generation failed'); return }
 
       const newRows: TCMRow[] = (data.rows ?? []).map(r => ({ ...r, isNew: true }))
@@ -506,11 +531,18 @@ export default function TCMEditorPage() {
           </p>
         </div>
 
-        {/* Accept all / Reject all (only when AI new rows exist) */}
+        {/* Bulk accept/reject controls (only when AI new rows exist) */}
         {hasNewRows && (
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center flex-wrap">
             <button onClick={acceptAllNew} className="text-xs border border-success text-success rounded-lg px-3 py-1.5 hover:bg-success hover:text-white transition-colors">
               Accept all new
+            </button>
+            <button
+              onClick={acceptHighPriorityOnly}
+              className="text-xs border border-red-300 text-red-600 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors"
+              title="Accept only High-priority AI rows, reject the rest"
+            >
+              Accept High only
             </button>
             <button onClick={rejectAllNew} className="text-xs border border-ink-200 text-ink-400 rounded-lg px-3 py-1.5 hover:bg-ink-100 transition-colors">
               Reject all
@@ -588,8 +620,8 @@ export default function TCMEditorPage() {
                 }
 
                 return (
+                  <React.Fragment key={row.id}>
                   <tr
-                    key={row.id}
                     style={rowStyle}
                     className={`border-b border-ink-100 transition-colors hover:bg-ink-50/50 ${rowBg}`}
                   >
@@ -628,6 +660,16 @@ export default function TCMEditorPage() {
                           </span>
                         )}
                       </div>
+                      {/* Expand toggle — only when steps or reason present */}
+                      {(row.steps || row.reason) && (
+                        <button
+                          onClick={() => toggleExpand(row.id)}
+                          className="mt-1 flex items-center gap-1 text-[10px] text-ink-400 hover:text-accent transition-colors"
+                        >
+                          <IconChevron open={expandedRows.has(row.id)} />
+                          {expandedRows.has(row.id) ? 'Hide details' : 'Show steps & reason'}
+                        </button>
+                      )}
                     </td>
 
                     {/* Checkboxes per group value */}
@@ -730,6 +772,22 @@ export default function TCMEditorPage() {
                       </div>
                     </td>
                   </tr>
+                  {/* Expanded steps/reason sub-row */}
+                  {expandedRows.has(row.id) && (row.steps || row.reason) && (
+                    <tr className="border-b border-ink-100 bg-blue-50/40">
+                      <td colSpan={totalCheckCols} className="px-4 py-2.5">
+                        {row.reason && (
+                          <p className="text-xs text-ink-600 mb-1.5">
+                            <span className="font-semibold text-ink-700">Why: </span>{row.reason}
+                          </p>
+                        )}
+                        {row.steps && (
+                          <pre className="text-[11px] font-mono text-ink-600 whitespace-pre-wrap leading-relaxed">{row.steps}</pre>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 )
               })
               })()}
@@ -762,6 +820,13 @@ export default function TCMEditorPage() {
             className="btn-ghost text-xs flex items-center gap-1.5 disabled:opacity-50"
           >
             {generatingMissing ? <IconSpinner /> : <span>✦</span>} Generate missing TCs
+          </button>
+          <button
+            onClick={() => session.tcm && downloadTCMXlsx(session.tcm)}
+            className="btn-ghost text-xs flex items-center gap-1.5"
+            title="Download TCM as styled XLSX"
+          >
+            <IconDownload /> Export TCM .xlsx
           </button>
           <span className="ml-auto text-xs text-ink-400 font-mono">{activeRows.filter(r => !r.sectionLabel).length} / {rows.filter(r => !r.sectionLabel).length} rows active</span>
         </div>

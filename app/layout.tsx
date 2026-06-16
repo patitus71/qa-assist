@@ -45,7 +45,7 @@ export default function RootLayout({
       </head>
       <body>
         <Providers>
-          <div className="flex min-h-screen bg-ink-50 dark:bg-ink-900">
+          <div className="flex min-h-screen" style={{ background: 'radial-gradient(125% 125% at 50% 90%, #000000 40%, #2b092b 100%)' }}>
             <Sidebar />
             {/* md:pl-[48px]: offset for fixed 48px icon rail on tablet
                 lg:pl-0: desktop sidebar is static (in flow), no offset needed

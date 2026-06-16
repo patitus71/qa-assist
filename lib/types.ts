@@ -106,6 +106,8 @@ export interface TCMRow {
   isNew?: boolean       // true = AI-suggested (only when existing TCM was imported)
   rejected?: boolean    // true = user rejected in TCM editor
   sectionLabel?: string // if set, this row is a section divider (not a real TC row)
+  steps?: string        // newline-separated test steps (from generate-from-tcm)
+  reason?: string       // why this scenario was suggested (from generate-from-tcm)
 }
 
 export interface TCMImportMeta {
