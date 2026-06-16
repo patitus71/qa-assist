@@ -188,18 +188,29 @@ interface TCBuildData {
 function buildTCStepData(tc: TC, meta: XlsxMeta): TCBuildData {
   const labelsStr = meta.labels.length > 0 ? meta.labels.join(', ')
     : tc.aiGenerated ? 'AI-generated' : ''
-  // trailing cols: Automation Status, Epic Link, Link Type, Issues Key To Link, Created by
-  const trailCols = ['Manual', meta.epicLink, meta.linkType, meta.issueKey, meta.createdBy]
-
   if (tc.type === 'Standard') {
     const tcName = `${tc.id}: ${tc.title}`
     const allSteps = tc.stepItems?.length
       ? tc.stepItems.map(s => `${s.keyword}${s.args ? '    ' + s.args : ''}${s.note ? '    # ' + s.note : ''}`)
       : tc.steps.split('\n').filter(Boolean)
     const stepLines = allSteps.length > 0 ? allSteps : ['']
+    const trailCols = [
+      tc.automationStatus ?? 'Manual',
+      tc.exportMeta?.epicLink ?? meta.epicLink,
+      meta.linkType,
+      tc.exportMeta?.issueKey ?? meta.issueKey,
+      tc.exportMeta?.createdBy ?? meta.createdBy,
+    ]
     return {
-      tcCols: [tcName, meta.workStream, meta.sprintId, meta.release, meta.squad,
-               labelsStr, meta.components, tc.title, '',
+      tcCols: [tcName,
+               tc.exportMeta?.workStream ?? meta.workStream,
+               tc.exportMeta?.sprintId   ?? meta.sprintId,
+               tc.exportMeta?.release    ?? meta.release,
+               tc.exportMeta?.squad      ?? meta.squad,
+               tc.exportMeta?.labels     ?? labelsStr,
+               tc.exportMeta?.component  ?? meta.components,
+               tc.scenario ?? tc.title,
+               tc.tcDescription ?? '',
                zephyrPriority(tc.priority), tc.positiveNegative ?? 'Positive',
                tc.prerequisite ?? '', tc.testData ?? ''],
       trailCols,
@@ -210,6 +221,9 @@ function buildTCStepData(tc: TC, meta: XlsxMeta): TCBuildData {
       })),
     }
   }
+
+  // trailing cols for E2E / API
+  const trailCols = ['Manual', meta.epicLink, meta.linkType, meta.issueKey, meta.createdBy]
 
   if (tc.type === 'E2E') {
     const tcName = `${tc.id}: ${tc.title}`

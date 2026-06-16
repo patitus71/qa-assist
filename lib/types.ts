@@ -10,17 +10,41 @@ export interface StepItem {
   note: string
 }
 
+export interface StandardStep {
+  no: number
+  description: string
+  expected?: string
+}
+
+export interface ExportMeta {
+  workStream?: string
+  sprintId?: string
+  release?: string
+  squad?: string
+  component?: string
+  labels?: string
+  epicLink?: string
+  relatesTo?: string
+  issueKey?: string
+  createdBy?: string
+}
+
 export interface StandardTC {
   id: string
   type: 'Standard'
   title: string
   steps: string
-  stepItems?: StepItem[]
+  stepItems?: StepItem[]        // Robot Framework export (keyword/args/note)
+  standardSteps?: StandardStep[] // Standard TC editor (description/expected per step)
   expected: string
   priority: TCPriority
   positiveNegative?: 'Positive' | 'Negative'
   testData?: string
   prerequisite?: string
+  scenario?: string             // Test Scenario Description
+  tcDescription?: string        // Test Case Description (separate from Jira issue description)
+  automationStatus?: string     // Automation Status
+  exportMeta?: ExportMeta       // Export-only columns (Zephyr/Testcase.xlsx metadata)
   aiGenerated?: boolean
   source?: 'ai' | 'jira' | 'manual'
   status: TCStatus
