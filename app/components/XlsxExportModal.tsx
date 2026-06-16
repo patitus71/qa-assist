@@ -2,7 +2,7 @@
 
 // app/components/XlsxExportModal.tsx
 import { useState, useEffect, type KeyboardEvent, type ReactNode } from 'react'
-import type { TC } from '@/lib/types'
+import type { TC, StandardTC } from '@/lib/types'
 import { exportTCXlsx, type XlsxMeta } from '@/lib/export-xlsx'
 import { useSession } from '@/lib/session-context'
 
@@ -123,7 +123,32 @@ interface Props {
 
 export function XlsxExportModal({ tcs, filename = 'test-cases.xlsx', onClose }: Props) {
   const { jiraKey } = useSession()
-  const [meta, setMeta] = useState<XlsxMeta>(loadMeta)
+  const [meta, setMeta] = useState<XlsxMeta>(() => {
+    const ls = loadMeta()
+    // Pre-fill from exportMeta only when localStorage has no required fields saved
+    if (!ls.workStream && !ls.release && !ls.squad) {
+      const first = tcs.find(t => t.type === 'Standard') as StandardTC | undefined
+      const em = first?.exportMeta
+      if (em) {
+        const labelsFromMeta = em.labels ? em.labels.split(',').map(s => s.trim()).filter(Boolean) : []
+        return {
+          ...ls,
+          workStream: em.workStream  ?? ls.workStream,
+          release:    em.release     ?? ls.release,
+          squad:      em.squad       ?? ls.squad,
+          sprintId:   em.sprintId    ?? ls.sprintId,
+          createdBy:  em.createdBy   ?? ls.createdBy,
+          components: em.component   ?? ls.components,
+          epicLink:   em.epicLink    ?? ls.epicLink,
+          issueKey:   em.issueKey    ?? ls.issueKey,
+          labels:     labelsFromMeta.length > 0
+            ? [...new Set([...labelsFromMeta, ...ls.labels])]
+            : ls.labels,
+        }
+      }
+    }
+    return ls
+  })
   const [labelInput, setLabelInput] = useState('')
   const [errors, setErrors] = useState<Partial<Record<keyof XlsxMeta, string>>>({})
   const [loadingJira, setLoadingJira] = useState(false)
