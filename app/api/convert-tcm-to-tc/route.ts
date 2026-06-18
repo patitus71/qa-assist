@@ -56,7 +56,7 @@ const SYSTEM_STANDARD = `You are a QA engineer. Convert TCM rows into detailed S
 Return ONLY a valid JSON array. No markdown. No explanation.
 Format: [{"id":"TC-01","title":"string","steps":"step 1\\nstep 2","expected":"string","priority":"High|Med|Low","testData":"string","prerequisite":"string","positiveNegative":"Positive|Negative"}]
 - title = scenario text exactly as given
-- steps = numbered steps (1. ... 2. ...) tailored to the scenario
+- steps = plain steps, one per line, no numbering
 - expected = clear expected result
 - testData = will be provided per row — use it as-is
 - prerequisite = system state required before the test`
@@ -68,7 +68,9 @@ function toStandard(raw: unknown, i: number, rows: z.infer<typeof TCMRowSchema>[
     id: typeof r.id === 'string' && r.id ? r.id : `TC-${String(i + 1).padStart(2, '0')}`,
     type: 'Standard',
     title: typeof r.title === 'string' ? r.title : (srcRow?.scenario ?? ''),
-    steps: typeof r.steps === 'string' ? r.steps : '',
+    steps: typeof r.steps === 'string'
+      ? r.steps.split('\n').map(l => l.replace(/^\d+\.\s*/, '').trim()).filter(Boolean).join('\n')
+      : '',
     expected: typeof r.expected === 'string' ? r.expected : '',
     priority: isPriority(r.priority) ? r.priority : (srcRow?.priority ?? 'Med'),
     testData: typeof r.testData === 'string' ? r.testData : rowToTestData(srcRow?.checks ?? {} as Record<string, Record<string, boolean>>, groups),

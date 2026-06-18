@@ -27,7 +27,7 @@ function getExpected(tc: TC): string {
 
 const S = StyleSheet.create({
   page: {
-    fontFamily: 'THSarabunNew',
+    fontFamily: 'Sarabun',
     fontSize: 11,
     paddingTop: 20,
     paddingBottom: 24,

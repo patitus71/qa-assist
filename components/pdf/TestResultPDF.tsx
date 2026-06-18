@@ -50,7 +50,7 @@ function priorityColor(p: string) {
 
 const S = StyleSheet.create({
   coverPage: {
-    fontFamily: 'THSarabunNew',
+    fontFamily: 'Sarabun',
     fontSize: 14,
     paddingTop: 0,
     paddingBottom: 28,
@@ -58,7 +58,7 @@ const S = StyleSheet.create({
     backgroundColor: '#fff',
   },
   detailPage: {
-    fontFamily: 'THSarabunNew',
+    fontFamily: 'Sarabun',
     fontSize: 14,
     paddingTop: 16,
     paddingBottom: 28,

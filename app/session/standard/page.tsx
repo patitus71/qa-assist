@@ -11,7 +11,6 @@ interface Draft {
   title: string
   scenario: string
   tcDescription: string
-  expected: string
   priority: TCPriority
   positiveNegative: 'Positive' | 'Negative'
   testData: string
@@ -23,12 +22,15 @@ interface Draft {
 function initDraft(tc: StandardTC): Draft {
   let standardSteps: StandardStep[]
   if (tc.standardSteps?.length) {
-    standardSteps = tc.standardSteps
+    standardSteps = tc.standardSteps.map(s => ({
+      ...s,
+      description: s.description.replace(/^\d+\.\s*/, '').trim(),
+    }))
   } else if (tc.steps) {
     const lines = tc.steps.split('\n').filter(Boolean)
     standardSteps = lines.map((line, i) => ({
       no: i + 1,
-      description: line.trim(),
+      description: line.trim().replace(/^\d+\.\s*/, ''),
       // Seed tc.expected into the first step so it isn't lost
       expected: i === 0 ? (tc.expected || undefined) : undefined,
     }))
@@ -39,7 +41,6 @@ function initDraft(tc: StandardTC): Draft {
     title: tc.title,
     scenario: tc.scenario ?? '',
     tcDescription: tc.tcDescription ?? '',
-    expected: tc.expected,
     priority: tc.priority,
     positiveNegative: tc.positiveNegative ?? 'Positive',
     testData: tc.testData ?? '',
@@ -65,12 +66,12 @@ function PosNegPill({
         type="button"
         onClick={() => onChange('Positive')}
         style={{
-          background: isPos ? '#ECFDF5' : '#F4F4F6',
+          background: isPos ? 'rgba(11,122,81,0.12)' : '#F4F4F6',
           color: isPos ? '#0B7A51' : '#6B6B75',
           borderRadius: 100,
-          border: isPos ? '1.5px solid #0B7A51' : '1.5px solid transparent',
-          padding: '4px 14px',
-          fontSize: 12,
+          border: isPos ? '1px solid rgba(11,122,81,0.25)' : '1px solid transparent',
+          padding: '3px 10px',
+          fontSize: 11,
           fontWeight: isPos ? 600 : 400,
           cursor: 'pointer',
           transition: 'all 0.15s',
@@ -82,12 +83,12 @@ function PosNegPill({
         type="button"
         onClick={() => onChange('Negative')}
         style={{
-          background: !isPos ? '#FEF2F2' : '#F4F4F6',
+          background: !isPos ? 'rgba(192,57,43,0.12)' : '#F4F4F6',
           color: !isPos ? '#C0392B' : '#6B6B75',
           borderRadius: 100,
-          border: !isPos ? '1.5px solid #C0392B' : '1.5px solid transparent',
-          padding: '4px 14px',
-          fontSize: 12,
+          border: !isPos ? '1px solid rgba(192,57,43,0.25)' : '1px solid transparent',
+          padding: '3px 10px',
+          fontSize: 11,
           fontWeight: !isPos ? 600 : 400,
           cursor: 'pointer',
           transition: 'all 0.15s',
@@ -119,7 +120,7 @@ function StepEditor({ steps, onChange }: {
     <div onClick={e => e.stopPropagation()}>
       <div className="flex items-center justify-between mb-2">
         <p className="text-[10px] font-medium text-ink-500 uppercase tracking-wide">Steps</p>
-        <button type="button" onClick={add} className="text-xs text-accent hover:underline">+ Add step</button>
+        <button type="button" onClick={add} className="text-xs text-accent hover:underline font-medium">+ Add step</button>
       </div>
       {steps.length === 0 ? (
         <p className="text-xs text-ink-400 italic py-1">No steps — click &quot;+ Add step&quot; to add one.</p>
@@ -163,12 +164,39 @@ function StepEditor({ steps, onChange }: {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+function TrashIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+      <path d="M2 4h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M5 4V2.5C5 2.224 5.224 2 5.5 2h5c.276 0 .5.224.5.5V4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M3 4l.75 9A1.5 1.5 0 0 0 4.25 14.5h7.5A1.5 1.5 0 0 0 13.25 13L14 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6.5 7v4M9.5 7v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export default function StandardPage() {
   const { standardTCs, setStandardTCs, updateTC } = useSession()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
   const [importMsg, setImportMsg] = useState('')
   const importRef = useRef<HTMLInputElement>(null)
+  const [clearModalOpen, setClearModalOpen] = useState(false)
+  const [toast, setToast] = useState('')
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function showToast(msg: string) {
+    setToast(msg)
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(''), 3500)
+  }
+
+  function handleClearAll() {
+    const count = standardTCs.length
+    setStandardTCs([])
+    setClearModalOpen(false)
+    showToast(`${count} test case${count !== 1 ? 's' : ''} cleared`)
+  }
 
   async function handleImport(file: File) {
     const { tcs, warnings } = await importTCsFromXlsx(file)
@@ -209,7 +237,6 @@ export default function StandardPage() {
       title: draft.title,
       scenario: draft.scenario || undefined,
       tcDescription: draft.tcDescription || undefined,
-      expected: draft.expected,
       priority: draft.priority,
       positiveNegative: draft.positiveNegative,
       testData: draft.testData || undefined,
@@ -250,6 +277,11 @@ export default function StandardPage() {
   if (standardTCs.length === 0) {
     return (
       <div className="p-3 md:p-4 lg:p-8 w-full">
+        {toast && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-ink-900 text-white text-sm px-4 py-2.5 rounded-full shadow-lg pointer-events-none">
+            {toast}
+          </div>
+        )}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-ink-900">Standard Test Cases</h1>
           {importButton}
@@ -264,6 +296,25 @@ export default function StandardPage() {
 
   return (
     <div className="p-3 md:p-4 lg:p-8 w-full">
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-ink-900 text-white text-sm px-4 py-2.5 rounded-full shadow-lg pointer-events-none">
+          {toast}
+        </div>
+      )}
+      {clearModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 backdrop-blur-sm">
+          <div className="card p-6 max-w-sm w-full mx-4">
+            <h2 className="text-base font-semibold text-ink-900 mb-2">Clear all test cases?</h2>
+            <p className="text-sm text-ink-500 mb-5">
+              This will remove all {standardTCs.length} Standard TCs from this session. This cannot be undone.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setClearModalOpen(false)} className="btn-ghost text-sm">Cancel</button>
+              <button onClick={handleClearAll} className="text-sm px-4 py-2 rounded-lg bg-danger text-white font-medium hover:opacity-90 transition-opacity">Clear all</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-ink-900">Standard Test Cases</h1>
@@ -274,6 +325,13 @@ export default function StandardPage() {
         </div>
         <div className="flex items-center gap-2">
           {importButton}
+          <button
+            onClick={() => setClearModalOpen(true)}
+            className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-danger/30 text-danger bg-transparent hover:bg-danger/10 transition-colors"
+          >
+            <TrashIcon />
+            Clear all
+          </button>
           <Link href="/session/standard/run" className="btn-primary">Run Tests →</Link>
         </div>
       </div>
@@ -326,72 +384,58 @@ export default function StandardPage() {
                   {isOpen && draft && (
                     <tr className="border-b border-ink-100 bg-accent/5">
                       <td colSpan={6} className="px-6 py-5">
-                        <div
-                          className="grid gap-6"
-                          style={{ gridTemplateColumns: '3fr 2fr' }}
-                          onClick={e => e.stopPropagation()}
-                        >
+                        <div className="space-y-4" onClick={e => e.stopPropagation()}>
 
-                          {/* ── Left column ─────────────────────────────── */}
-                          <div className="space-y-4">
-
-                            {/* Section 1: Identification */}
-                            <div>
-                              <label className={labelCls}>Title</label>
-                              <textarea
-                                className={textareaCls}
-                                rows={2}
-                                value={draft.title}
-                                onChange={e => setDraft(tc.id, d => ({ ...d, title: e.target.value }))}
-                              />
-                            </div>
-
-                            <div>
-                              <label className={labelCls}>Scenario</label>
-                              <textarea
-                                className={textareaCls}
-                                rows={2}
-                                value={draft.scenario}
-                                placeholder="Test scenario description…"
-                                onChange={e => setDraft(tc.id, d => ({ ...d, scenario: e.target.value }))}
-                              />
-                            </div>
-
-                            {/* Section 2: Overall expected */}
-                            <div>
-                              <label className={labelCls}>Expected Result</label>
-                              <textarea
-                                className={textareaCls}
-                                rows={3}
-                                value={draft.expected}
-                                onChange={e => setDraft(tc.id, d => ({ ...d, expected: e.target.value }))}
-                              />
-                            </div>
-
-                            {/* Section 3: Steps */}
-                            <StepEditor
-                              steps={draft.standardSteps}
-                              onChange={steps => setDraft(tc.id, d => ({ ...d, standardSteps: steps }))}
+                          {/* 1. Title */}
+                          <div>
+                            <label className={labelCls}>Title *</label>
+                            <textarea
+                              className={textareaCls}
+                              rows={2}
+                              value={draft.title}
+                              onChange={e => setDraft(tc.id, d => ({ ...d, title: e.target.value }))}
                             />
-
                           </div>
 
-                          {/* ── Right column ─────────────────────────────── */}
-                          <div className="space-y-4">
+                          {/* 2. Test Scenario Description */}
+                          <div>
+                            <label className={labelCls}>Test Scenario Description</label>
+                            <textarea
+                              className={textareaCls}
+                              rows={3}
+                              placeholder="Scenario"
+                              value={draft.scenario}
+                              onChange={e => setDraft(tc.id, d => ({ ...d, scenario: e.target.value }))}
+                            />
+                          </div>
 
+                          {/* 3. Test Case Description */}
+                          <div>
+                            <label className={labelCls}>Test Case Description</label>
+                            <textarea
+                              className={textareaCls}
+                              rows={3}
+                              placeholder="Description"
+                              value={draft.tcDescription}
+                              onChange={e => setDraft(tc.id, d => ({ ...d, tcDescription: e.target.value }))}
+                            />
+                          </div>
+
+                          {/* 4. Priority + Pos/Neg on same row */}
+                          <div className="flex items-end gap-6">
                             <div>
-                              <label className={labelCls}>Priority</label>
+                              <label className={labelCls}>Priority *</label>
                               <select
                                 className={inputCls}
+                                style={{ width: 200 }}
                                 value={draft.priority}
                                 onChange={e => setDraft(tc.id, d => ({ ...d, priority: e.target.value as TCPriority }))}
                               >
                                 <option value="High">High</option>
-                                <option value="Med">Med</option>
+                                <option value="Med">Medium</option>
                                 <option value="Low">Low</option>
                               </select>
                             </div>
-
                             <div>
                               <label className={labelCls}>Positive / Negative</label>
                               <PosNegPill
@@ -399,59 +443,59 @@ export default function StandardPage() {
                                 onChange={v => setDraft(tc.id, d => ({ ...d, positiveNegative: v }))}
                               />
                             </div>
-
-                            <div>
-                              <label className={labelCls}>Test Data</label>
-                              <textarea
-                                className={textareaCls}
-                                rows={3}
-                                style={{ minHeight: 80 }}
-                                value={draft.testData}
-                                onChange={e => setDraft(tc.id, d => ({ ...d, testData: e.target.value }))}
-                                placeholder="e.g. username=test@bank.com"
-                              />
-                            </div>
-
-                            <div>
-                              <label className={labelCls}>Prerequisite</label>
-                              <textarea
-                                className={textareaCls}
-                                rows={3}
-                                style={{ minHeight: 80 }}
-                                value={draft.prerequisite}
-                                onChange={e => setDraft(tc.id, d => ({ ...d, prerequisite: e.target.value }))}
-                                placeholder="e.g. User must be logged in"
-                              />
-                            </div>
-
-                            <div>
-                              <label className={labelCls}>TC Description</label>
-                              <textarea
-                                className={textareaCls}
-                                rows={2}
-                                value={draft.tcDescription}
-                                placeholder="Optional test case description…"
-                                onChange={e => setDraft(tc.id, d => ({ ...d, tcDescription: e.target.value }))}
-                              />
-                            </div>
-
-                            <div>
-                              <label className={labelCls}>Automation Status</label>
-                              <input
-                                type="text"
-                                className={inputCls}
-                                value={draft.automationStatus}
-                                placeholder="Manual"
-                                onChange={e => setDraft(tc.id, d => ({ ...d, automationStatus: e.target.value }))}
-                              />
-                            </div>
-
-                            <div className="flex gap-2 pt-1">
-                              <button type="button" onClick={() => save(tc)} className="btn-primary text-sm px-5">Save</button>
-                              <button type="button" onClick={() => cancel(tc.id)} className="btn-ghost text-sm px-5">Cancel</button>
-                            </div>
-
                           </div>
+
+                          {/* 5. Prerequisite */}
+                          <div>
+                            <label className={labelCls}>Prerequisite</label>
+                            <textarea
+                              className={textareaCls}
+                              rows={3}
+                              placeholder="Comment"
+                              value={draft.prerequisite}
+                              onChange={e => setDraft(tc.id, d => ({ ...d, prerequisite: e.target.value }))}
+                            />
+                          </div>
+
+                          {/* 6. Test Data */}
+                          <div>
+                            <label className={labelCls}>Test Data</label>
+                            <textarea
+                              className={textareaCls}
+                              rows={2}
+                              placeholder="Test data"
+                              value={draft.testData}
+                              onChange={e => setDraft(tc.id, d => ({ ...d, testData: e.target.value }))}
+                            />
+                          </div>
+
+                          {/* 7. Steps */}
+                          <StepEditor
+                            steps={draft.standardSteps}
+                            onChange={steps => setDraft(tc.id, d => ({ ...d, standardSteps: steps }))}
+                          />
+
+                          {/* 8. Automation Status */}
+                          <div>
+                            <label className={labelCls}>Automation Status</label>
+                            <select
+                              className={inputCls}
+                              style={{ width: 200 }}
+                              value={draft.automationStatus}
+                              onChange={e => setDraft(tc.id, d => ({ ...d, automationStatus: e.target.value }))}
+                            >
+                              <option value="">— Select —</option>
+                              <option value="Manual">Manual</option>
+                              <option value="Automation">Automation</option>
+                            </select>
+                          </div>
+
+                          {/* 9. Save / Cancel */}
+                          <div className="flex gap-2 pt-1">
+                            <button type="button" onClick={() => save(tc)} className="btn-primary text-sm px-5">Save</button>
+                            <button type="button" onClick={() => cancel(tc.id)} className="btn-ghost text-sm px-5">Cancel</button>
+                          </div>
+
                         </div>
                       </td>
                     </tr>

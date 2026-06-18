@@ -168,6 +168,7 @@ function buildStandardTC(g: RawGroup, idx: number, cols: ColMap): StandardTC {
     { desc: gv(g.meta, stepDescCol), expected: gv(g.meta, expectedCol) },
     ...g.extra.map(r => ({ desc: gv(r, stepDescCol), expected: gv(r, expectedCol) })),
   ].filter(s => s.desc)
+   .map(s => ({ ...s, desc: s.desc.replace(/^\d+\.\s*/, '').trim() }))
 
   const rawName = gv(g.meta, cols.name)
   const { id, title } = splitNameId(rawName, 'Standard', idx)
@@ -177,9 +178,6 @@ function buildStandardTC(g: RawGroup, idx: number, cols: ColMap): StandardTC {
     description: s.desc,
     expected: s.expected || undefined,
   }))
-
-  // Seed tc.expected from the overall expected col on the meta row (first row wins)
-  const tcExpected = gv(g.meta, expectedCol) || allSteps[0]?.expected || ''
 
   const exportMeta: ExportMeta = {
     workStream:  gv(g.meta, cols.workStream)  || undefined,
@@ -202,7 +200,7 @@ function buildStandardTC(g: RawGroup, idx: number, cols: ColMap): StandardTC {
     steps: allSteps.map(s => s.desc).join('\n'),
     standardSteps,
     stepItems: allSteps.map(s => ({ keyword: s.desc, args: '', note: '' })),
-    expected: tcExpected,
+    expected: '',
     priority: parsePriority(gv(g.meta, cols.priority)),
     positiveNegative: (gv(g.meta, cols.posNeg) as 'Positive' | 'Negative') || 'Positive',
     prerequisite: gv(g.meta, cols.prereq) || undefined,
@@ -292,8 +290,18 @@ export async function importTCsFromXlsx(file: File): Promise<ImportResult> {
   let dataStartIdx = 1
   if (allRows.length > 1) {
     const secondRow = allRows[1] as unknown[]
+    const nameColIdx = cols.name ?? 0
     const firstCell = str(secondRow[0]).toLowerCase()
-    if (KNOWN_DESCRIPTIONS.has(firstCell) || (cols.name !== undefined && KNOWN_DESCRIPTIONS.has(str(secondRow[cols.name]).toLowerCase()))) {
+    const nameCell = str(secondRow[nameColIdx]).toLowerCase()
+    // Skip row 2 if it looks like a description/sub-header row:
+    // - first cell matches a known long description, OR
+    // - name-column cell matches a known long description, OR
+    // - name-column cell is a HEADER_MAP alias (e.g. "Name", "Scenario", "Sprint")
+    if (
+      KNOWN_DESCRIPTIONS.has(firstCell) ||
+      KNOWN_DESCRIPTIONS.has(nameCell) ||
+      nameCell in HEADER_MAP
+    ) {
       dataStartIdx = 2
     }
   }

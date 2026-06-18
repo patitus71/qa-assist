@@ -84,10 +84,14 @@ interface GenCardProps {
   description: string
   isGenerating: boolean
   error?: string
+  existingCount: number
+  confirmPending: boolean
   onGenerate: () => void
+  onConfirm: () => void
+  onCancelConfirm: () => void
 }
 
-function GenCard({ icon, title, coverage, description, isGenerating, error, onGenerate }: GenCardProps) {
+function GenCard({ icon, title, coverage, description, isGenerating, error, existingCount, confirmPending, onGenerate, onConfirm, onCancelConfirm }: GenCardProps) {
   return (
     <div className="card p-5 flex flex-col">
       <div className="flex items-center gap-2.5 mb-3">
@@ -102,11 +106,22 @@ function GenCard({ icon, title, coverage, description, isGenerating, error, onGe
       <button
         className="btn-primary w-full mt-4 flex items-center justify-center gap-2"
         onClick={onGenerate}
-        disabled={isGenerating}
+        disabled={isGenerating || confirmPending}
       >
         {isGenerating && <IconSpinner />}
         {isGenerating ? 'Generating TCM…' : `Generate ${title} TCM`}
       </button>
+      {confirmPending && (
+        <div className="mt-3 rounded-lg border border-warn/40 bg-warn/5 px-3 py-2.5">
+          <p className="text-xs text-ink-700 mb-2">
+            This will replace <span className="font-semibold">{existingCount}</span> existing {title} TCs. Continue?
+          </p>
+          <div className="flex gap-2">
+            <button onClick={onConfirm} className="btn-primary text-xs px-3 py-1.5">Generate anyway</button>
+            <button onClick={onCancelConfirm} className="btn-ghost text-xs px-3 py-1.5">Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -176,6 +191,7 @@ export default function GeneratePage() {
   // Generation state
   const [generating, setGenerating] = useState<GenType | null>(null)
   const [genErrors, setGenErrors] = useState<Partial<Record<GenType, string>>>({})
+  const [confirmType, setConfirmType] = useState<GenType | null>(null)
 
   // ── Toast ──────────────────────────────────────────────────────────────────
 
@@ -255,10 +271,27 @@ export default function GeneratePage() {
 
   // ── Generate TCM ───────────────────────────────────────────────────────────
 
-  async function generate(type: GenType) {
+  function handleGenerateClick(type: GenType) {
+    if (!localReq.trim()) return
+    const count = type === 'standard' ? session.standardTCs.length
+      : type === 'e2e' ? session.e2eTCs.length
+      : session.apiTCs.length
+    if (count > 0) {
+      setConfirmType(type)
+      return
+    }
+    void doGenerate(type)
+  }
+
+  async function doGenerate(type: GenType) {
+    setConfirmType(null)
     if (!localReq.trim()) return
     setGenerating(type)
     setGenErrors({})
+
+    if (type === 'standard') session.setStandardTCs([])
+    else if (type === 'e2e') session.setE2eTCs([])
+    else session.setApiTCs([])
 
     session.setRequirement(localReq, session.jiraKey ?? undefined)
     session.setImages(localImages)
@@ -562,7 +595,11 @@ export default function GeneratePage() {
           description="Identifies test dimensions, generates a TCM matrix, then converts each row to a Standard TC."
           isGenerating={generating === 'standard'}
           error={genErrors.standard}
-          onGenerate={() => generate('standard')}
+          existingCount={session.standardTCs.length}
+          confirmPending={confirmType === 'standard'}
+          onGenerate={() => handleGenerateClick('standard')}
+          onConfirm={() => { void doGenerate('standard') }}
+          onCancelConfirm={() => setConfirmType(null)}
         />
         <GenCard
           icon={<IconE2E />}
@@ -571,7 +608,11 @@ export default function GeneratePage() {
           description="Maps end-to-end flow dimensions to a TCM, then generates step-by-step E2E test cases."
           isGenerating={generating === 'e2e'}
           error={genErrors.e2e}
-          onGenerate={() => generate('e2e')}
+          existingCount={session.e2eTCs.length}
+          confirmPending={confirmType === 'e2e'}
+          onGenerate={() => handleGenerateClick('e2e')}
+          onConfirm={() => { void doGenerate('e2e') }}
+          onCancelConfirm={() => setConfirmType(null)}
         />
         <GenCard
           icon={<IconAPI />}
@@ -580,7 +621,11 @@ export default function GeneratePage() {
           description="Maps API parameters and states to a TCM, then converts each combination to an API TC."
           isGenerating={generating === 'api'}
           error={genErrors.api}
-          onGenerate={() => generate('api')}
+          existingCount={session.apiTCs.length}
+          confirmPending={confirmType === 'api'}
+          onGenerate={() => handleGenerateClick('api')}
+          onConfirm={() => { void doGenerate('api') }}
+          onCancelConfirm={() => setConfirmType(null)}
         />
       </div>
 

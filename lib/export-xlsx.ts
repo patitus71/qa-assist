@@ -217,7 +217,7 @@ function buildTCStepData(tc: TC, meta: XlsxMeta): TCBuildData {
       steps: stepLines.map((line, i) => ({
         no: String(i + 1),
         desc: line,
-        expected: i === 0 ? tc.expected : '',
+        expected: tc.standardSteps?.[i]?.expected ?? '',
       })),
     }
   }

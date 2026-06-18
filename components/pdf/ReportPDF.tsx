@@ -8,7 +8,7 @@ import type { TestReport } from '@/lib/types'
 
 const S = StyleSheet.create({
   page: {
-    fontFamily: 'THSarabunNew',
+    fontFamily: 'Sarabun',
     fontSize: 14,
     padding: 32,
     backgroundColor: '#fff',

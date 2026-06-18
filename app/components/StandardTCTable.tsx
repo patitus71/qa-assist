@@ -9,7 +9,7 @@ interface Props {
   onChange: (tcs: StandardTC[]) => void
 }
 
-type EditField = 'title' | 'steps' | 'expected' | 'priority' | 'positiveNegative' | 'testData' | 'prerequisite'
+type EditField = 'title' | 'steps' | 'priority' | 'positiveNegative' | 'testData' | 'prerequisite'
 type EditCell = { rowId: string; field: EditField }
 
 const PRIORITIES: TCPriority[] = ['High', 'Med', 'Low']
@@ -65,7 +65,7 @@ export function StandardTCTable({ tcs, onChange }: Props) {
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [newRow, setNewRow] = useState({
-    title: '', steps: '', expected: '', priority: 'Med' as TCPriority,
+    title: '', steps: '', priority: 'Med' as TCPriority,
     testData: '', prerequisite: '', positiveNegative: 'Positive' as 'Positive' | 'Negative',
   })
 
@@ -98,13 +98,13 @@ export function StandardTCTable({ tcs, onChange }: Props) {
             <span style={{
               display: 'inline-block',
               borderRadius: 100,
-              padding: '2px 10px',
+              padding: '3px 10px',
               fontSize: 11,
               fontWeight: 500,
               whiteSpace: 'nowrap',
-              background: tc.positiveNegative === 'Negative' ? '#FEF2F2' : '#ECFDF5',
+              background: tc.positiveNegative === 'Negative' ? 'rgba(192,57,43,0.12)' : 'rgba(11,122,81,0.12)',
               color: tc.positiveNegative === 'Negative' ? '#C0392B' : '#0B7A51',
-              border: `1px solid ${tc.positiveNegative === 'Negative' ? '#FECACA' : '#A7F3D0'}`,
+              border: `1px solid ${tc.positiveNegative === 'Negative' ? 'rgba(192,57,43,0.25)' : 'rgba(11,122,81,0.25)'}`,
             }}>
               {tc.positiveNegative ?? 'Positive'}
             </span>
@@ -139,12 +139,12 @@ export function StandardTCTable({ tcs, onChange }: Props) {
           onBlur={() => setEditCell(null)}
           style={{
             borderRadius: 100,
-            padding: '2px 10px',
+            padding: '3px 10px',
             fontSize: 11,
             fontWeight: 500,
-            background: cur === 'Negative' ? '#FEF2F2' : '#ECFDF5',
+            background: cur === 'Negative' ? 'rgba(192,57,43,0.12)' : 'rgba(11,122,81,0.12)',
             color: cur === 'Negative' ? '#C0392B' : '#0B7A51',
-            border: `1px solid ${cur === 'Negative' ? '#FECACA' : '#A7F3D0'}`,
+            border: `1px solid ${cur === 'Negative' ? 'rgba(192,57,43,0.25)' : 'rgba(11,122,81,0.25)'}`,
             cursor: 'pointer',
           }}
         >
@@ -153,7 +153,7 @@ export function StandardTCTable({ tcs, onChange }: Props) {
       )
     }
 
-    const isMultiline = field === 'steps' || field === 'expected' || field === 'prerequisite'
+    const isMultiline = field === 'steps' || field === 'prerequisite'
     const val = (tc[field as keyof StandardTC] as string) ?? ''
 
     if (isMultiline) {
@@ -209,7 +209,7 @@ export function StandardTCTable({ tcs, onChange }: Props) {
       type: 'Standard',
       title: newRow.title,
       steps: newRow.steps,
-      expected: newRow.expected,
+      expected: '',
       priority: newRow.priority,
       testData: newRow.testData,
       prerequisite: newRow.prerequisite,
@@ -218,7 +218,7 @@ export function StandardTCTable({ tcs, onChange }: Props) {
       status: 'Pending',
     }
     onChange([...tcs, next])
-    setNewRow({ title: '', steps: '', expected: '', priority: 'Med', testData: '', prerequisite: '', positiveNegative: 'Positive' })
+    setNewRow({ title: '', steps: '', priority: 'Med', testData: '', prerequisite: '', positiveNegative: 'Positive' })
   }
 
   // ── Bulk select ────────────────────────────────────────────────────────────
@@ -348,7 +348,6 @@ export function StandardTCTable({ tcs, onChange }: Props) {
                 <th className="px-3 py-2.5 text-left text-xs font-medium text-ink-500 uppercase tracking-wide w-24">ID</th>
                 <th className="px-3 py-2.5 text-left text-xs font-medium text-ink-500 uppercase tracking-wide min-w-[160px]">Title</th>
                 <th className="px-3 py-2.5 text-left text-xs font-medium text-ink-500 uppercase tracking-wide min-w-[160px]">Steps</th>
-                <th className="px-3 py-2.5 text-left text-xs font-medium text-ink-500 uppercase tracking-wide min-w-[140px]">Expected</th>
                 <th className="px-3 py-2.5 text-left text-xs font-medium text-ink-500 uppercase tracking-wide w-20">Priority</th>
                 <th className="px-3 py-2.5 text-left text-xs font-medium text-ink-500 uppercase tracking-wide w-20">Pos/Neg</th>
                 <th className="px-3 py-2.5 text-left text-xs font-medium text-ink-500 uppercase tracking-wide min-w-[120px]">Test Data</th>
@@ -380,7 +379,6 @@ export function StandardTCTable({ tcs, onChange }: Props) {
                   </td>
                   <td className="px-3 py-2 min-w-[160px] max-w-[200px]">{renderCell(tc, 'title')}</td>
                   <td className="px-3 py-2 min-w-[160px] max-w-[220px]">{renderCell(tc, 'steps')}</td>
-                  <td className="px-3 py-2 min-w-[140px] max-w-[200px]">{renderCell(tc, 'expected')}</td>
                   <td className="px-3 py-2 w-20">{renderCell(tc, 'priority')}</td>
                   <td className="px-3 py-2 w-20">{renderCell(tc, 'positiveNegative')}</td>
                   <td className="px-3 py-2 min-w-[120px] max-w-[180px]">{renderCell(tc, 'testData')}</td>
@@ -414,10 +412,6 @@ export function StandardTCTable({ tcs, onChange }: Props) {
                   <input value={newRow.steps} onChange={e => setNewRow(r => ({ ...r, steps: e.target.value }))}
                     placeholder="Steps…" className={inputCls} />
                 </td>
-                <td className="px-3 py-2 min-w-[140px]">
-                  <input value={newRow.expected} onChange={e => setNewRow(r => ({ ...r, expected: e.target.value }))}
-                    placeholder="Expected…" className={inputCls} />
-                </td>
                 <td className="px-3 py-2 w-20">
                   <select value={newRow.priority} onChange={e => setNewRow(r => ({ ...r, priority: e.target.value as TCPriority }))}
                     className="text-xs border border-ink-200 rounded px-1 py-0.5 bg-white focus:outline-none">
@@ -430,12 +424,12 @@ export function StandardTCTable({ tcs, onChange }: Props) {
                     onClick={() => setNewRow(r => ({ ...r, positiveNegative: r.positiveNegative === 'Positive' ? 'Negative' : 'Positive' }))}
                     style={{
                       borderRadius: 100,
-                      padding: '2px 10px',
+                      padding: '3px 10px',
                       fontSize: 11,
                       fontWeight: 500,
-                      background: newRow.positiveNegative === 'Negative' ? '#FEF2F2' : '#ECFDF5',
+                      background: newRow.positiveNegative === 'Negative' ? 'rgba(192,57,43,0.12)' : 'rgba(11,122,81,0.12)',
                       color: newRow.positiveNegative === 'Negative' ? '#C0392B' : '#0B7A51',
-                      border: `1px solid ${newRow.positiveNegative === 'Negative' ? '#FECACA' : '#A7F3D0'}`,
+                      border: `1px solid ${newRow.positiveNegative === 'Negative' ? 'rgba(192,57,43,0.25)' : 'rgba(11,122,81,0.25)'}`,
                       cursor: 'pointer',
                       whiteSpace: 'nowrap',
                     }}

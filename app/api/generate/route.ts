@@ -127,7 +127,9 @@ function toStandard(raw: unknown, i: number): StandardTC {
     id: typeof r.id === 'string' && r.id ? r.id : `TC-${String(i + 1).padStart(2, '0')}`,
     type: 'Standard',
     title: typeof r.title === 'string' ? r.title : '',
-    steps: typeof r.steps === 'string' ? r.steps : '',
+    steps: typeof r.steps === 'string'
+      ? r.steps.split('\n').map(l => l.replace(/^\d+\.\s*/, '').trim()).filter(Boolean).join('\n')
+      : '',
     expected: typeof r.expected === 'string' ? r.expected : '',
     priority: isPriority(r.priority) ? r.priority : 'Med',
     testData: typeof r.testData === 'string' ? r.testData : '',

@@ -569,7 +569,7 @@ export default function TCMEditorPage() {
                     {g.name}
                   </th>
                 ))}
-                <th className="px-3 py-2 text-center font-medium text-ink-500 whitespace-nowrap border-r border-ink-100" rowSpan={2}>Pos/Neg</th>
+                <th className="px-3 py-2 text-center font-medium text-ink-500 whitespace-nowrap border-r border-ink-100" style={{ minWidth: '90px' }} rowSpan={2}>Pos/Neg</th>
                 <th className="px-3 py-2 text-center font-medium text-ink-500 whitespace-nowrap border-r border-ink-100" rowSpan={2}>Priority</th>
                 <th className="px-3 py-2 text-center font-medium text-ink-500 w-20" rowSpan={2}>Actions</th>
               </tr>
@@ -694,13 +694,22 @@ export default function TCMEditorPage() {
                       <button
                         onClick={() => !isRejected && togglePosNeg(row.id)}
                         disabled={isRejected}
-                        className={`text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors disabled:cursor-not-allowed ${
-                          row.posNeg === 'Positive'
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                            : 'bg-red-100 text-red-700 hover:bg-red-200'
-                        }`}
+                        style={{
+                          borderRadius: 100,
+                          padding: '3px 10px',
+                          fontSize: 11,
+                          fontWeight: 500,
+                          whiteSpace: 'nowrap',
+                          cursor: isRejected ? 'not-allowed' : 'pointer',
+                          transition: 'opacity 0.15s',
+                          background: row.posNeg === 'Positive' ? 'rgba(11,122,81,0.12)' : 'rgba(192,57,43,0.12)',
+                          color: row.posNeg === 'Positive' ? '#0B7A51' : '#C0392B',
+                          border: `1px solid ${row.posNeg === 'Positive' ? 'rgba(11,122,81,0.25)' : 'rgba(192,57,43,0.25)'}`,
+                        }}
+                        onMouseEnter={e => { if (!isRejected) e.currentTarget.style.opacity = '0.75' }}
+                        onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
                       >
-                        {row.posNeg === 'Positive' ? '+' : '−'}
+                        {row.posNeg === 'Positive' ? 'Positive' : 'Negative'}
                       </button>
                     </td>
 
